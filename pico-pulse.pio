@@ -1,0 +1,41 @@
+;
+; Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+; SET pin 0 should be mapped to your LED GPIO
+
+.pio_version 0 // only requires PIO version 0
+
+.program pulse
+.wrap_target
+    pull block   ; pull pin states
+    out pins, 3  ; set pin states
+    out x, 29    ; put delay into x 
+wt:
+    jmp x-- wt   ; wait for x + 1 cycles
+.wrap            ; start over
+
+
+% c-sdk {
+// this is a raw helper function for use by the user which sets up the GPIO output, and configures the SM to output on a particular pin
+
+void pulse_program_init(PIO pio, uint sm, uint offset, uint pin_base, uint pin_num) {
+    // Hand over control of selected pins to PIO
+   for (uint i = 0; i < pin_num; ++i)
+   	pio_gpio_init(pio, pin_base + i);
+   // Set all pins to output
+   pio_sm_set_consecutive_pindirs(pio, sm, pin_base, pin_num, true);
+   // Get default state machine config
+   pio_sm_config c = pulse_program_get_default_config(offset);
+   // Allow all pins to be controlled by the SET instruction
+   sm_config_set_set_pins(&c, pin_base, pin_num);
+   // Allow all pins to be controlled by the OUT instruction
+   sm_config_set_out_pins(&c, pin_base, pin_num);
+   // Join both FIFOs together to get a longer TX buffer
+   // sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+   // Initialize state machine with given config
+   pio_sm_init(pio, sm, offset, &c);
+}
+%}
