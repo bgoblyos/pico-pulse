@@ -11,16 +11,16 @@
 .program pulse
 .wrap_target
     pull block   ; pull pin states
-    out pins, 3  ; set pin states
-    out x, 29    ; put delay into x 
+    out pins, 5  ; set pin states
+    out x, 27    ; put delay into x 
 wt:
     jmp x-- wt   ; wait for x + 1 cycles
 .wrap            ; start over
 
 
 % c-sdk {
-// this is a raw helper function for use by the user which sets up the GPIO output, and configures the SM to output on a particular pin
 
+// Helper function to configure pins and initialize state machine
 void pulse_program_init(PIO pio, uint sm, uint offset, uint pin_base, uint pin_num) {
     // Hand over control of selected pins to PIO
    for (uint i = 0; i < pin_num; ++i)
@@ -34,7 +34,7 @@ void pulse_program_init(PIO pio, uint sm, uint offset, uint pin_base, uint pin_n
    // Allow all pins to be controlled by the OUT instruction
    sm_config_set_out_pins(&c, pin_base, pin_num);
    // Join both FIFOs together to get a longer TX buffer
-   // sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
    // Initialize state machine with given config
    pio_sm_init(pio, sm, offset, &c);
 }
