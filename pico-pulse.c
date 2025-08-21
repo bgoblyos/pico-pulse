@@ -16,6 +16,57 @@
 #define N_GPIO 5              // Number of GPIO pins (also change PIO code if you modify this!)
 #define PIO_EXTRA_CYCLES 4    // Extra cycles taken by PIO code when outputting pulse, used to correct delay
 
+#define CMD_BUF_LEN 1024      // Incoming command buffer length
+#define PIO_BUF_LEN           // PIO instruction buffer length
+
+// PIO variables
+PIO pio;
+uint sm;
+uint offset;
+
+// DMA variables
+int dma;
+dma_channel_config dma_conf;
+
+// Timing variables
+uint32_t cpu_clk;
+uint32_t cycles_per_s;
+uint32_t cycles_per_ms;
+uint32_t cycles_per_us;
+
+// Command processing variables
+uint32_t cmd_counter = 0;  // Keep track of cursor position in input buffer
+bool cmd_process = false;  // Set whether command is under processing
+
+// Buffers
+char rx_buf[CMD_BUF_LEN];         // Incoming commands are placed into this buffer
+char cmd_buf[CMD_BUF_LEN];
+uint32_t pio_buf[PIO_BUF_LEN];
+
+// This function is called whenerver there's data on the 
+void receive_cmd_handler(void* ptr) {
+    char tmp;
+    // TODO: Receive character and place it into buffer
+    
+    // If character is newline or we ran out of space, terminate string and hand off
+    // into another buffer for further processing
+    if (tmp == '\n' || cmd_counter == CMD_BUF_LEN - 1) {
+	rx_buf[cmd_counter] = '\0';
+	// If the command is still being processed, spin until it's done before overwriting its buffer
+	while (cmd_process)
+	    sleep_us(1);
+	
+	// Copy string into new buffer
+	
+	// Set flag
+        cmd_process = true;
+	// Reset counter
+	cmd_counter = 0;
+    }
+    else
+        rx_buf[cmd_counter++] = tmp;
+}
+
 void start_dma(int dma, dma_channel_config* conf_ptr, PIO pio, uint sm, uint32_t* buf, uint n) {
     dma_channel_configure(
         dma,
