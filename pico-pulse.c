@@ -5,6 +5,8 @@
 */
 
 #include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
@@ -17,7 +19,7 @@
 #define PIO_EXTRA_CYCLES 4    // Extra cycles taken by PIO code when outputting pulse, used to correct delay
 
 #define CMD_BUF_LEN 1024      // Incoming command buffer length
-#define PIO_BUF_LEN           // PIO instruction buffer length
+#define PIO_BUF_LEN 1024      // PIO instruction buffer length
 
 // PIO variables
 PIO pio;
@@ -35,62 +37,62 @@ uint32_t cycles_per_ms;
 uint32_t cycles_per_us;
 
 // Command processing variables
-uint32_t cmd_counter = 0;  // Keep track of cursor position in input buffer
-bool cmd_process = false;  // Set whether command is under processing
+uint32_t rx_counter = 0;      // Keep track of cursor position in receive buffer
+int rx_tmp;                   // Temporary buffer for received character
+bool rx_busy = false;         // Indicate whether input processing is in progress
+bool cmd_ready= false;        // Indicate whether command ready to be processed
 
 // Buffers
 char rx_buf[CMD_BUF_LEN];         // Incoming commands are placed into this buffer
-char cmd_buf[CMD_BUF_LEN];
-uint32_t pio_buf[PIO_BUF_LEN];
+char cmd_buf[CMD_BUF_LEN];        // Commands are copied here for processing
+uint32_t pio_buf[PIO_BUF_LEN];    // Pulse data is stored here
 
-// This function is called whenerver there's data on the 
-void receive_cmd_handler(void* ptr) {
-    char tmp;
-    // TODO: Receive character and place it into buffer
+// This function is called whenerver there's data on the serial port
+void rx_handler(void* ptr) {
+    // If another instance of this handler is running, spin until it's done
+    while (rx_busy)
+        sleep_us(1);
     
-    // If character is newline or we ran out of space, terminate string and hand off
-    // into another buffer for further processing
-    if (tmp == '\n' || cmd_counter == CMD_BUF_LEN - 1) {
-	rx_buf[cmd_counter] = '\0';
+    // Make sure another instance won't interrupt
+    rx_busy = true;
+
+    // Keep trying until a read is successful
+    do {
+        rx_tmp = stdio_getchar_timeout_us(1);
+    } while (rx_tmp == -2);
+
+    // If character is LF or CR or we ran out of space, terminate string and hand off
+    // into another buffer for further processing. The non-zero length check prevents
+    // extra line terminaltions, so CRLF doesn't result in a new zero-length string
+    if (rx_counter != 0 && (rx_tmp == 10 || rx_tmp == 13 || rx_counter == CMD_BUF_LEN - 1)) {
+	rx_buf[rx_counter] = '\0';
+	
+	if (strlen(rx_buf))
 	// If the command is still being processed, spin until it's done before overwriting its buffer
-	while (cmd_process)
+	while (cmd_ready)
 	    sleep_us(1);
 	
 	// Copy string into new buffer
-	
-	// Set flag
-        cmd_process = true;
+	strcpy(cmd_buf, rx_buf);
+	// Indicate that command is ready for processing
+        cmd_ready = true;
 	// Reset counter
-	cmd_counter = 0;
+	rx_counter = 0;
     }
-    else
-        rx_buf[cmd_counter++] = tmp;
+    // Only consider printable characters
+    else if (isprint(rx_tmp)) {
+        rx_buf[rx_counter++] = (char)rx_tmp;
+    }
+    // Free up lock
+    rx_busy = false;
 }
 
-void start_dma(int dma, dma_channel_config* conf_ptr, PIO pio, uint sm, uint32_t* buf, uint n) {
-    dma_channel_configure(
-        dma,
-        conf_ptr,
-        &pio->txf[sm],
-        buf,
-        dma_encode_transfer_count(n),
-        true
-    );
-};
-
-int main() {
-    setup_default_uart();
-
-    PIO pio;
-    uint sm;
-    uint offset;
-
+void init_pio() {
     // Find a free pio and state machine and add the program
     bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(&pulse_program, &pio, &sm, &offset, BASE_GPIO, N_GPIO, true);
     hard_assert(rc);
     printf("Loaded program at %u on pio %u\n", offset, PIO_NUM(pio));
 
-    printf("Clock frequency is %lu HZ\n", clock_get_hz(clk_sys));
     // Initialize state machine
     pulse_program_init(pio, sm, offset, BASE_GPIO, N_GPIO);
     
@@ -99,17 +101,14 @@ int main() {
 
     // enable state machine
     pio_sm_set_enabled(pio, sm, true);
+}
 
-    float freq = 4.0;
-    uint32_t delay = (uint32_t)(clock_get_hz(clk_sys) / freq) - 4;
-    uint32_t buf[32];
-    for (uint i = 0; i < 32; i++)
-        buf[i] = ((delay << N_GPIO) | i);
 
-    // Initialize DMA channel
-    int dma = dma_claim_unused_channel(true);
+void init_dma() {
+    // Claim DMA channel
+    dma = dma_claim_unused_channel(true);
     // Get default config
-    dma_channel_config dma_conf = dma_channel_get_default_config(dma);
+    dma_conf = dma_channel_get_default_config(dma);
     // Set DMA width to 32 bits
     channel_config_set_transfer_data_size(&dma_conf, DMA_SIZE_32);
     // Increment read address
@@ -118,11 +117,38 @@ int main() {
     channel_config_set_write_increment(&dma_conf, false);
     // Connect to FIFO Tx request signals
     channel_config_set_dreq(&dma_conf, pio_get_dreq(pio, sm, true));
+}
+
+void start_dma(uint n) {
+    dma_channel_configure(
+        dma,
+        &dma_conf,
+        &pio->txf[sm],
+        pio_buf,
+        dma_encode_transfer_count(n < PIO_BUF_LEN ? n : PIO_BUF_LEN),
+        true
+    );
+};
+
+int main() {
+    setup_default_uart();
+
+    init_pio();
+    init_dma();
+
+    // Set up input handler
+    stdio_set_chars_available_callback(rx_handler, NULL);
+
+    float freq = 4.0;
+    uint32_t delay = (uint32_t)(clock_get_hz(clk_sys) / freq) - 4;
+    for (uint i = 0; i < 32; i++)
+        pio_buf[i] = ((delay << N_GPIO) | i);
+
     
-    start_dma(dma, &dma_conf, pio, sm, buf, 32);
+    start_dma(32);
 
     sleep_ms(10000);
-    start_dma(dma, &dma_conf, pio, sm, buf, 32);
+    start_dma(32);
     
     // Spin forever
     while (1)
