@@ -25,12 +25,15 @@ Set up pulse sequence. Stops the DMA, clears the PIO FIFO, generates PIO command
 If `n` is non-zero, the pulse sequence is started as soon as processing is complete. 
 
   - `n`: Number of times to repeat the sequence. Use 0 to upload a sequence without starting imediately. INF will repeat the sequence until it is aborted.
+         Note that the timing between a sequence finishing and being restarted is not guaranteed to be consistent and there may be a delay of up to 1 us, during which the last pulse of the sequence will continue to be generated.
+         It is thus recommended to terminate your sequences with a short 0 "turn everything off" pulse. A long (over 1 us) 0 pulse at the end of the sequence will also give time for the CPU to restart the DMA before the PIO runs dry,
+         resulting in consistent, but long donwtimes between sequences. 
   - `ti`: Time of i-th pulse in nanoseconds, whole numbers only. Actual pulse time will be rounded down to the nearest multiple of the system clock period time.
   - `pi`: Output states during the i-th pulse. Accepts whole numbers between 0-31, each bit representing a channel.
 
 ### `CPULSE n t1,p1,t2,p2,...`
 
-Same as `PULSE`, but timings are given in clock cycles. Pulses must be at least 4 cycles long.
+Same as `PULSE`, but timings are given in clock cycles. Pulses must be at least 4 cycles long (will be rounded up to 4 otherwise).
 ives more control over rounding than the nanosecocond method, but requires knowledge of the clock frequency (see `CLK?`).
 
 ### `RUN n`
