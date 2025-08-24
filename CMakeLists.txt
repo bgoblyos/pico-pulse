@@ -23,5 +23,7 @@ target_sources(pico-pulse PRIVATE pico-pulse.c)
 
 target_link_libraries(pico-pulse PRIVATE pico_stdlib hardware_pio hardware_dma)
 
+pico_enable_stdio_usb(pico-pulse 1)
+
 # Build UF2 files as well
-#pico_add_extra_outputs(modulator)
+# pico_add_extra_outputs(pico-pulse)

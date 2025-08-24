@@ -39,59 +39,50 @@ bool loop_inf = false;
 uint32_t loop_n = 0;
 
 // Command processing variables
-uint32_t rx_counter = 0;      // Keep track of cursor position in receive buffer
-int rx_tmp;                   // Temporary buffer for received character
-bool rx_lock = false;         // Indicate whether input processing is in progress
-bool cmd_lock = false;        // Indicate whether command ready to be processed
+uint32_t rx_counter = 0;         // Keep track of cursor position in receive buffer
+int rx_tmp;                      // Temporary buffer for received character
+bool cmd_ready = false;          // Indicate whether command ready to be processed
+bool rx_available = false;       // Indicate whether a character is avaialble on stdin
 
 // Buffers
-char rx_buf[CMD_BUF_LEN];         // Incoming commands are placed into this buffer
 char cmd_buf[CMD_BUF_LEN];        // Commands are copied here for processing
 uint32_t pio_buf[PIO_BUF_LEN];    // Pulse data is stored here
 
-// This function is called whenerver there's data on the serial port
 void rx_handler(void* ptr) {
-    // If another instance of this handler is running, spin until it's done
-    while (rx_lock)
-        sleep_us(1);
-    
-    // Make sure another instance won't interrupt
-    rx_lock = true;
+	rx_available = true;
+}
 
-    // Keep trying until a read is successful
-    do {
-        rx_tmp = stdio_getchar_timeout_us(1);
-    } while (rx_tmp == -2);
+// This function is called in the main loop every time there's a character available
+void cmd_read_char() {
+    // Read in single char
+    rx_tmp = stdio_getchar_timeout_us(0);
 
-    // If character is LF or CR or we ran out of space, terminate string and hand off
-    // into another buffer for further processing. The non-zero length check prevents
-    // extra line terminaltions, so CRLF doesn't result in a new zero-length string
-    if (rx_counter != 0 && (rx_tmp == 10 || rx_tmp == 13 || rx_counter == CMD_BUF_LEN - 1)) {
-		// This throws away the last character if the buffer is filled up, but overrunning the buffer would truncate the command regardless,
-		// so it doesn't matter if it happens one character sooner.
-		rx_buf[rx_counter] = '\0';
-	
-		// If the command is still being processed, spin until it's done before overwriting its buffer
-		while (cmd_lock)
-	    	sleep_us(1);
-	
-		// Copy string into new buffer
-		// Since we already know the length and need to shuffle the whole thing around,
-		// we can take the opportunity of uppercase all letters for further use.
-		for (uint32_t i = 0; i <= rx_counter; i++)
-			cmd_buf[i] = toupper(rx_buf[i]);
+	// If the new character is received successfully, process it
+	if (rx_tmp != -2) {
+    	// If character is LF or CR or we ran out of space, terminate string and hand off
+    	// into another buffer for further processing. The non-zero length check prevents
+    	// extra line terminations, so CRLF doesn't result in a new zero-length string
+    	if (rx_counter != 0 && (rx_tmp == 10 || rx_tmp == 13 || rx_counter == CMD_BUF_LEN - 1)) {
+			// This throws away the last character if the buffer is filled up, but overrunning the buffer would truncate the command regardless,
+			// so it doesn't matter if it happens one character sooner.
+			cmd_buf[rx_counter] = '\0';
 
-		// Indicate that command is ready for processing
-    	cmd_lock = true;
-		// Reset counter
-		rx_counter = 0;
-    }
-    // Only consider printable characters
-    else if (isprint(rx_tmp)) {
-        rx_buf[rx_counter++] = (char)rx_tmp;
-    }
-    // Free up lock
-    rx_lock = false;
+			//printf("Command read-in successful: %s.\n", cmd_buf);
+			// Indicate that command is ready for processing
+    		cmd_ready = true;
+			// Reset counter
+			rx_counter = 0;
+    	}
+    	// If the received character is printable, convert it to uppercase and append to command buffer
+    	else if (isprint(rx_tmp)) {
+        	cmd_buf[rx_counter++] = toupper((char)rx_tmp);
+			//printf("Read in character %c.\n", (char)rx_tmp);
+    	}
+	}
+	else {
+		// If we couldn't get a character, indicate that the buffer is empty
+		rx_available = false;
+	}
 }
 
 void init_pio() {
@@ -152,15 +143,15 @@ void stop_all() {
 
 void cmd_decode() {
 	// Decode command from cmd_buf
-	printf("CMD decoder called\n");
-	printf("String: %s\n", cmd_buf);
-	// Release lock before returning
-	cmd_lock = false;
+	printf("String: %s\r\n", cmd_buf);
+	// Simulate slow decoding
+	// sleep_ms(1);
 }
 
 int main() {
     // Initialze serial communication on UART
     setup_default_uart();
+	stdio_init_all();
     // Set up input handler
     stdio_set_chars_available_callback(rx_handler, NULL);
 
@@ -174,7 +165,7 @@ int main() {
 	// Test DMA, remove one commands are implemented
 	dma_count = 32;
 	loop_inf = false;
-    float freq = 16.0;
+    float freq = 8.0;
     uint32_t delay = (uint32_t)(clock_get_hz(clk_sys) / freq) - 4;
     for (uint i = 0; i < 32; i++)
         pio_buf[i] = ((delay << N_GPIO) | i);
@@ -183,14 +174,18 @@ int main() {
 
     // Main loop
 	while (1) {
-		// Slow the main loop down a bit. The command handling doesn't work if the loop is permanently busy (not sure why, exactly)
-		sleep_us(1);
+		// If there are characters available, read one of them in.
+		// This might be slower than reading them in until the buffer is emtpy,
+		// but the DMA requires frequent attention and somewhat consistent timings
+		if (rx_available) {
+			cmd_read_char();
+		}
 
-		// If there's a new command, decode it
-		//printf("CMD lock is %d.\n", cmd_lock);
-		if (cmd_lock) {
-			printf("Decode logic entered.\n");
+		// If a new command has been read in, decode it
+		if (cmd_ready) {
 			cmd_decode();
+			// Indicate that command has been processed
+			cmd_ready = false;
 		}
 
 		// If DMA looping is requested and DMA is idle, restart it
