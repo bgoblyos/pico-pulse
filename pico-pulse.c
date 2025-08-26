@@ -18,8 +18,8 @@
 #define N_GPIO 5              // Number of GPIO pins (also change PIO code if you modify this!)
 #define PIO_EXTRA_CYCLES 4    // Extra cycles taken by PIO code when outputting pulse, used to correct delay
 
-#define CMD_BUF_LEN 1024      // Incoming command buffer length
-#define PIO_BUF_LEN 1024      // PIO instruction buffer length
+#define CMD_BUF_LEN 65536     // Incoming command buffer length
+#define PIO_BUF_LEN 65536     // PIO instruction buffer length
 
 // PIO variables
 PIO pio;
@@ -163,12 +163,21 @@ int main() {
     cpu_clk = clock_get_hz(clk_sys);
 
 	// Test DMA, remove one commands are implemented
-	dma_count = 32;
-	loop_inf = false;
+	dma_count = PIO_BUF_LEN - 4;
+    loop_inf = true;
     float freq = 8.0;
     uint32_t delay = (uint32_t)(clock_get_hz(clk_sys) / freq) - 4;
-    for (uint i = 0; i < 32; i++)
-        pio_buf[i] = ((delay << N_GPIO) | i);
+    for (uint i = 0; i < PIO_BUF_LEN - 3; i++) {
+        pio_buf[i++] = ((150-4 << N_GPIO) | 24);
+        pio_buf[i++] = ((150000-4 << N_GPIO) | 0);
+        pio_buf[i++] = ((150-4 << N_GPIO) | 24);
+        pio_buf[i] = ((300000-4 << N_GPIO) | 0);
+    }
+
+    pio_buf[0] = 24;
+    pio_buf[1] = 0;
+    dma_count = 2;
+    loop_inf = true;
 
     start_dma();
 
