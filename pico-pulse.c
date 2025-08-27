@@ -9,9 +9,11 @@
 #include <ctype.h>
 
 #include "pico/stdlib.h"
+#include "pico/unique_id.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
+
 #include "pico-pulse.pio.h"
 
 #define BASE_GPIO 2           // Start of the GPIO range
@@ -20,6 +22,12 @@
 
 #define CMD_BUF_LEN 65536     // Incoming command buffer length
 #define PIO_BUF_LEN 65536     // PIO instruction buffer length
+#define BID_BUF_LEN 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1 // Buffer length for board ID
+
+// Buffers
+char cmd_buf[CMD_BUF_LEN];        // Commands are copied here for processing
+uint32_t pio_buf[PIO_BUF_LEN];    // Pulse data is stored here
+char bid_buf[BID_BUF_LEN];        // String for storing board id
 
 // PIO variables
 PIO pio;
@@ -38,15 +46,9 @@ uint32_t cpu_clk;
 bool loop_inf = false;
 uint32_t loop_n = 0;
 
-// Command processing variables
-uint32_t rx_counter = 0;         // Keep track of cursor position in receive buffer
-int rx_tmp;                      // Temporary buffer for received character
+// Command processing flags
 bool cmd_ready = false;          // Indicate whether command ready to be processed
 bool rx_available = false;       // Indicate whether a character is avaialble on stdin
-
-// Buffers
-char cmd_buf[CMD_BUF_LEN];        // Commands are copied here for processing
-uint32_t pio_buf[PIO_BUF_LEN];    // Pulse data is stored here
 
 void rx_handler(void* ptr) {
 	rx_available = true;
@@ -54,6 +56,9 @@ void rx_handler(void* ptr) {
 
 // This function is called in the main loop every time there's a character available
 void cmd_read_char() {
+	static uint32_t rx_counter = 0;  // Keep track of cursor position in receive buffer
+	static int rx_tmp;               // Temporary buffer for received character
+
     // Read in single char
     rx_tmp = stdio_getchar_timeout_us(0);
 
@@ -89,7 +94,6 @@ void init_pio() {
     // Find a free pio and state machine and add the program
     bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(&pulse_program, &pio, &sm, &offset, BASE_GPIO, N_GPIO, true);
     hard_assert(rc);
-    printf("Loaded program at %u on pio %u\n", offset, PIO_NUM(pio));
 
     // Initialize state machine
     pulse_program_init(pio, sm, offset, BASE_GPIO, N_GPIO);
@@ -129,6 +133,9 @@ void start_dma() {
 
 // Stop DMA and flush PIO FIFO
 void stop_all() {
+	// Turn off infinite DMA looping and set loop count to 0
+	loop_inf = false;
+	loop_n = 0;
     // Disable state machine
 	pio_sm_set_enabled(pio, sm, true);
 	// Stop DMA
@@ -142,10 +149,20 @@ void stop_all() {
 }
 
 void cmd_decode() {
-	// Decode command from cmd_buf
-	printf("String: %s\r\n", cmd_buf);
-	// Simulate slow decoding
-	// sleep_ms(1);
+	// This part isn't performance-critical, so we just use local variables
+	char* cmd_word;
+	char* next_token;
+	
+	printf("Begin decoding:\r\n");
+	
+	// Read in first token and store progress in next_token
+	cmd_word = strtok_r(cmd_buf, " ", &next_token);
+	printf("\tCommand is: %s\r\n", cmd_word);
+
+	if (!strcmp(cmd_word, "*IDN?") || !strcmp(cmd_word, "IDN?")) {
+		printf("TESTING");
+	}
+
 }
 
 int main() {

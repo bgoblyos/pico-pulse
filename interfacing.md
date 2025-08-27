@@ -18,7 +18,7 @@ The following quirks of the system should be taken into account when sending com
 
 ## Available commands
 
-### `IDN*?`
+### `*IDN?` or `IDN?`
 
 Returns information about he device, including the pico's serial number (if the device is rp2350-based)
 

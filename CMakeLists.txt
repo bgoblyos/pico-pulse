@@ -21,7 +21,7 @@ pico_generate_pio_header(pico-pulse ${CMAKE_CURRENT_LIST_DIR}/pico-pulse.pio)
 
 target_sources(pico-pulse PRIVATE pico-pulse.c)
 
-target_link_libraries(pico-pulse PRIVATE pico_stdlib hardware_pio hardware_dma)
+target_link_libraries(pico-pulse PRIVATE pico_stdlib pico_unique_id hardware_pio hardware_dma)
 
 pico_enable_stdio_usb(pico-pulse 1)
 
