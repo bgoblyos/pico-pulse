@@ -10,15 +10,15 @@
 
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
-#include "hardware/pio.h"
+//#include "hardware/pio.h"
 #include "hardware/clocks.h"
-#include "hardware/dma.h"
+//#include "hardware/dma.h"
 
-#include "pico-pulse.pio.h"
+#include "hardware.h"
 
 #define BASE_GPIO 2           // Start of the GPIO range
 #define N_GPIO 5              // Number of GPIO pins (also change PIO code if you modify this!)
-#define PIO_EXTRA_CYCLES 4    // Extra cycles taken by PIO code when outputting pulse, used to correct delay
+//#define PIO_EXTRA_CYCLES 4    // Extra cycles taken by PIO code when outputting pulse, used to correct delay
 
 #define CMD_BUF_LEN 65536     // Incoming command buffer length
 #define PIO_BUF_LEN 65536     // PIO instruction buffer length
@@ -30,14 +30,15 @@ uint32_t pio_buf[PIO_BUF_LEN];    // Pulse data is stored here
 char bid_buf[BID_BUF_LEN];        // String for storing board id
 
 // PIO variables
-PIO pio;
+/*PIO pio;
 uint sm;
 uint offset;
+*/
+uint32_t pio_extra_cycles = 4;
 
-// DMA variables
-int dma;
-dma_channel_config dma_conf;
-uint dma_count = 0;
+// Pull in DMA related variables for use here
+extern int dma;
+extern uint dma_count;
 
 // Timing variables
 uint32_t cpu_clk;
@@ -90,13 +91,14 @@ void cmd_read_char() {
 	}
 }
 
-void init_pio() {
+/*
+void init_pio(uint base_gpio, uint n_gpio) {
     // Find a free pio and state machine and add the program
-    bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(&pulse_program, &pio, &sm, &offset, BASE_GPIO, N_GPIO, true);
+    bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(&pulse_program, &pio, &sm, &offset, base_gpio, n_gpio, true);
     hard_assert(rc);
 
     // Initialize state machine
-    pulse_program_init(pio, sm, offset, BASE_GPIO, N_GPIO);
+    pulse_program_init(pio, sm, offset, base_gpio, n_gpio);
     
     // clear FIFO
     pio_sm_clear_fifos(pio, sm);
@@ -147,7 +149,7 @@ void stop_all() {
 	// Send a zero to the PIO to disable all outputs
 	pio_sm_put_blocking(pio, sm, 0);
 }
-
+*/
 void cmd_decode() {
 	// This part isn't performance-critical, so we just use local variables
 	char* cmd_word;
@@ -173,28 +175,20 @@ int main() {
     stdio_set_chars_available_callback(rx_handler, NULL);
 
     // Initilaize PIO and DMA channel
-    init_pio();
-    init_dma();
+    init_pio(BASE_GPIO, N_GPIO);
+    init_dma(PIO_BUF_LEN);
 
     // Get system clock speed
     cpu_clk = clock_get_hz(clk_sys);
 
 	// Test DMA, remove one commands are implemented
-	dma_count = PIO_BUF_LEN - 4;
+	dma_count = 32;
     loop_inf = true;
     float freq = 8.0;
     uint32_t delay = (uint32_t)(clock_get_hz(clk_sys) / freq) - 4;
-    for (uint i = 0; i < PIO_BUF_LEN - 3; i++) {
-        pio_buf[i++] = ((150-4 << N_GPIO) | 24);
-        pio_buf[i++] = ((150000-4 << N_GPIO) | 0);
-        pio_buf[i++] = ((150-4 << N_GPIO) | 24);
-        pio_buf[i] = ((300000-4 << N_GPIO) | 0);
+    for (uint i = 0; i < 32; i++) {
+		pio_buf[i] = (delay << N_GPIO | i);
     }
-
-    pio_buf[0] = 24;
-    pio_buf[1] = 0;
-    dma_count = 2;
-    loop_inf = true;
 
     start_dma();
 
