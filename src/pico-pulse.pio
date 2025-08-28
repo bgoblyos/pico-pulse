@@ -1,21 +1,19 @@
 ;
-; Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+; Copyright (c) 2025 Bence Göblyös
 ;
-; SPDX-License-Identifier: BSD-3-Clause
+; SPDX-License-Identifier: GPL-3.0-or-later
 ;
-
-; SET pin 0 should be mapped to your LED GPIO
 
 .pio_version 0 // only requires PIO version 0
 
 .program pulse
 .wrap_target
-    pull block   ; pull pin states
-    out pins, 5  ; set pin states
-    out x, 27    ; put delay into x 
+    pull block   ; Pull next pulse from FIFO
+    out pins, 5  ; Set pin states to the last 5 bits of the command
+    out x, 27    ; Store the rest of the input as a delay
 wt:
-    jmp x-- wt   ; wait for x + 1 cycles
-.wrap            ; start over
+    jmp x-- wt   ; Wait for x + 1 cycles
+.wrap            ; Instantly jump back to the beginning
 
 
 % c-sdk {

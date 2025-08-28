@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Bence Göblyös
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include "hardware.h"
 
 #include "hardware/pio.h"
