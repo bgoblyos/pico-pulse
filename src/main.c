@@ -1,8 +1,3 @@
-/*
-* Sources:
-* pico-examples/pio/pio_blink
-* https://gregchadwick.co.uk/blog/playing-with-the-pico-pt4/
-*/
 
 #include <stdio.h>
 #include <string.h>
