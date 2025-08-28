@@ -35,12 +35,15 @@ Returns the size of the sequence buffer.
 
 ### `MAXT?`
 
-Return the maximum time that a single pulse can take. Note that the firmware will automatically split large pulses into smaller identical ones,
-so this command is indeded to help with predicting the actual on-device length of the sequence.
+Return the maximum time that a single pulse can take in nanoseconds. Note that the firmware will automatically split large pulses into smaller identical ones,
+so this command is inteded to help with predicting the actual on-device length of the sequence.
 
 ### `BUSY?`
 
-Returns whether the pico-pulse's is currently busy. If the return value is 0, it is safe to upload or start a new sequence without interrupting the previous one.
+Returns whether the pico-pulse's is currently busy. A return value of 0 means the pico-pulse is completely ide,
+1 indicates that PIO FIFO still has instructions in it but the DMA is idle and 2 indicates that the DMA is busy.
+The operation that doesn't disrupt output in state 1 is the uploading of a pulse sequence with n=0, everything else will
+flush the FIFO and interrupt the current sequence.
 
 ### `WAIT`
 

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
@@ -22,6 +23,19 @@ char bid_buf[BID_BUF_LEN];
 
 bool cmd_ready = false;           // Indicate whether command ready to be processed
 bool rx_available = false;        // Indicate whether a character is avaialble on stdin
+
+// Pull in CPU clock rate from main.c
+extern uint32_t cpu_clk;
+
+// Pull in PIO variables from main.c
+extern const uint32_t pio_buf_len;
+extern const uint32_t pio_extra_cycles;
+extern const uint pio_n_gpio;
+
+// Pull in DMA variables from main.c
+extern uint32_t loop;
+extern int dma;
+extern uint dma_count;
 
 // This function is set as the callback when chars are available on stdin
 void rx_handler(void* ptr) {
@@ -71,16 +85,28 @@ void cmd_decode() {
 	char* cmd_word;
 	char* next_token;
 	
-	printf("Begin decoding:\r\n");
-	
 	// Read in first token and store progress in next_token
 	cmd_word = strtok_r(cmd_buf, " ", &next_token);
-	printf("\tCommand is: %s\r\n", cmd_word);
 
 	if (!strcmp(cmd_word, "*IDN?") || !strcmp(cmd_word, "IDN?")) {
 		print_id();
+	} else if (!strcmp(cmd_word, "CLK?")) {
+		print_clk();
+	} else if (!strcmp(cmd_word, "BUFFER?")) {
+		print_buf();
+	} else if (!strcmp(cmd_word, "MAXT?")) {
+		print_maxt();
+	} else if (!strcmp(cmd_word, "STOP")) {
+		stop_all();
+		printf("ACK\n"); // Send acknowledgement, since stop_all() is silent
+	} else if (!strcmp(cmd_word, "BUSY?")) {
+		print_busy();
+	} else if (!strcmp(cmd_word, "PULSE")) {
+		decode_pulse(next_token);
 	}
-
+	else {
+		printf("Error: command not recongnized.\n");
+	}
 }
 
 void print_id() {
@@ -93,9 +119,87 @@ void print_id() {
 	}
 
 	printf(
-		"pico-pulse v%d.%d, board id: %s\r\n",
+		"pico-pulse v%d.%d, board id: %s\n",
 		VERSION_MAJOR,
 		VERSION_MINOR,
 		bid_buf
 	);
+}
+
+void print_clk() { printf("%lu\n", cpu_clk); }
+
+void print_buf() { printf("%lu\n", pio_buf_len); }
+
+void print_maxt() {
+	// Conversion factor from seconds to nanoseconds
+	static const uint64_t conv_factor = 1000000000;
+	// Absolute maximum delay achieveable with a single pulse
+	uint64_t max_cycles = (1 << (32 - pio_n_gpio)) - 1 + pio_extra_cycles;
+	// Perform multiplication first to avoid floating point math later on
+	uint64_t nanocycles = conv_factor * max_cycles;
+	// Perform division with clock rate
+	uint64_t maxt_ns = nanocycles / cpu_clk;
+
+	printf("%llu\n", maxt_ns);
+}
+
+void print_busy() { printf("%lu\n", is_busy()); }
+
+// Decodes pulse sequence and 
+void decode_pulse(char* next_token) {
+	static char* tmp;
+	static uint64_t time_ns;
+	static uint32_t out;
+
+	tmp = strtok_r(NULL, " ", &next_token);
+	uint32_t m_target = strtoul(tmp, NULL, 10);
+	
+	tmp = strtok_r(NULL, " ", &next_token);
+	uint32_t n = strtoul(tmp, NULL, 10);
+
+	// If we don't intent to start immediately and the DMA is empty,
+	// we don't need to abort the current run
+	if (!(n == 0 && is_busy() != 2)) {
+		stop_all();
+	}
+
+	// Set looping to n
+	loop = n;
+
+	// PIO buffer index
+	uint32_t i = 0;
+
+	// Parsing loop
+	while (1) {
+
+		// Read time from parameter list
+		tmp = strtok_r(NULL, ",", &next_token);
+		if (tmp)
+			time_ns = strtoull(tmp, NULL, 10);
+		else
+			break; // If there's nothing, we reached the end of the equence
+
+		tmp = strtok_r(NULL, ",", &next_token);
+		if (tmp) {
+			out = strtoul(tmp, NULL, 10);
+			if (out >= (1 << pio_n_gpio )) {
+				printf("Error: Invalid pulse number!\n");
+				loop = 0;      // Ensure defective sequence isn't started automatically
+				dma_count = 0; // Make sure DMA won't do anything even is started with RUN
+				return;
+			}
+		}
+		else {
+			printf("Error: unmatched pulse entry detected.\n");
+			loop = 0;      // Ensure defective sequence isn't started automatically
+			dma_count = 0; // Make sure DMA won't do anything even is started with RUN
+			return;
+		}
+
+		// Encode pulse for the PIO
+
+
+	}
+
+	printf("DONE\n");
 }

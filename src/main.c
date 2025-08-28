@@ -7,18 +7,19 @@
 
 #include "pico/stdlib.h"
 #include "hardware/clocks.h"
+#include "hardware/dma.h"
 
 #include "hardware.h"
 #include "command.h"
 
 // PIO parameters
 // Defined here for ease of access
-#define BASE_GPIO 2                  // Start of the GPIO range
-#define N_GPIO 5                     // Number of GPIO pins (also change PIO code if you modify this!)
-const uint32_t pio_extra_cycles = 4; // Number os cycles it takes the PIO to loop if the delay is 0
-#define PIO_BUF_LEN 65536            // PIO instruction buffer length
-uint32_t pio_buf[PIO_BUF_LEN];       // Pulse data is stored here
-
+const uint pio_base_gpio = 2;              // Number of first GPIO to be used as output
+const uint pio_n_gpio = 5;                 // Number of consecutive GPIOs to use. Don't forget to update the PIO code if you change this!
+const uint32_t pio_extra_cycles = 4;       // Number of cycles it takes the PIO to loop if the delay is 0
+#define PIO_BUF_LEN 65536                  // PIO instruction buffer length
+const uint32_t pio_buf_len = PIO_BUF_LEN;  // Save it to a constant as well for convenience
+uint32_t pio_buf[PIO_BUF_LEN];             // Buffer for storing data for the PIO
 
 // Pull in DMA related variables from hardware.c for use here
 extern int dma;          // Number of the DMA channel, used for checking if it's busy
@@ -44,19 +45,19 @@ int main() {
     stdio_set_chars_available_callback(rx_handler, NULL);
 
     // Initialize PIO and DMA channel
-    init_pio(BASE_GPIO, N_GPIO);
-    init_dma(PIO_BUF_LEN);
+    init_pio();
+    init_dma();
 
     // Get system clock speed
     cpu_clk = clock_get_hz(clk_sys);
 
 	// Test DMA, remove once commands are implemented
 	dma_count = 32;
-    loop = loop_inf_val;
+    loop = 10;
     float freq = 8.0;
     uint32_t delay = (uint32_t)(clock_get_hz(clk_sys) / freq) - 4;
     for (uint i = 0; i < 32; i++) {
-		pio_buf[i] = (delay << N_GPIO | i);
+		pio_buf[i] = (delay << pio_n_gpio | i);
     }
 
     start_dma();
