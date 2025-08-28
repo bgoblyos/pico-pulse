@@ -28,6 +28,7 @@ bool rx_available = false;        // Indicate whether a character is avaialble o
 extern uint32_t cpu_clk;
 
 // Pull in PIO variables from main.c
+extern uint32_t pio_buf[];
 extern const uint32_t pio_buf_len;
 extern const uint32_t pio_extra_cycles;
 extern const uint pio_n_gpio;
@@ -105,7 +106,7 @@ void cmd_decode() {
 		decode_pulse(next_token);
 	}
 	else {
-		printf("Error: command not recongnized.\n");
+		printf("Error: command not recognized.\n");
 	}
 }
 
@@ -149,7 +150,11 @@ void print_busy() { printf("%lu\n", is_busy()); }
 void decode_pulse(char* next_token) {
 	static char* tmp;
 	static uint64_t time_ns;
+	static uint64_t time_cycles;
 	static uint32_t out;
+	static uint32_t delay;
+	uint32_t i = 0;
+	uint32_t max_cycles = (1 << (32 - pio_n_gpio)) - 1 + pio_extra_cycles;
 
 	tmp = strtok_r(NULL, " ", &next_token);
 	uint32_t m_target = strtoul(tmp, NULL, 10);
@@ -165,9 +170,6 @@ void decode_pulse(char* next_token) {
 
 	// Set looping to n
 	loop = n;
-
-	// PIO buffer index
-	uint32_t i = 0;
 
 	// Parsing loop
 	while (1) {
@@ -185,21 +187,55 @@ void decode_pulse(char* next_token) {
 			if (out >= (1 << pio_n_gpio )) {
 				printf("Error: Invalid pulse number!\n");
 				loop = 0;      // Ensure defective sequence isn't started automatically
-				dma_count = 0; // Make sure DMA won't do anything even is started with RUN
+				dma_count = 0; // Make sure DMA won't do anything even if started with RUN
 				return;
 			}
 		}
 		else {
 			printf("Error: unmatched pulse entry detected.\n");
 			loop = 0;      // Ensure defective sequence isn't started automatically
-			dma_count = 0; // Make sure DMA won't do anything even is started with RUN
+			dma_count = 0; // Make sure DMA won't do anything even if started with RUN
 			return;
 		}
 
 		// Encode pulse for the PIO
+		time_cycles = (cpu_clk * time_ns) / 1000000000;
 
-
+		// If time_cycles is too long, create multiple identical pulses
+		for (uint32_t j = 0; j < time_cycles / max_cycles; j++) {
+			if (i < pio_buf_len) {
+				delay = max_cycles < pio_extra_cycles ? pio_extra_cycles : max_cycles;
+				pio_buf[i++] = ((delay - pio_extra_cycles) << pio_n_gpio) | out;
+			}
+			else {
+				printf("Error: buffer has been overrun!");
+				loop = 0;      // Ensure defective sequence isn't started automatically
+				dma_count = 0; // Make sure DMA won't do anything even if started with RUN
+				return;
+			}
+		}
+		
+		// Add remainder
+		if (time_cycles % max_cycles != 0) {
+			if (i < pio_buf_len) {
+				delay = (time_cycles % max_cycles) < pio_extra_cycles ? pio_extra_cycles : (time_cycles % max_cycles);
+				pio_buf[i++] = ((delay - pio_extra_cycles) << pio_n_gpio) | out;
+			}
+			else {
+				printf("Error: buffer has been overrun!");
+				loop = 0;      // Ensure defective sequence isn't started automatically
+				dma_count = 0; // Make sure DMA won't do anything even if started with RUN
+				return;
+			}
+		}
+		
 	}
 
-	printf("DONE\n");
+	// TODO: Copy sequence multiple times
+	
+	dma_count = i;
+	
+	for (uint32_t j = 0; j < i; j++)
+		printf("%lu,", pio_buf[j]);
+	printf("\n");
 }
