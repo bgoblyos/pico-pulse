@@ -7,6 +7,7 @@
 
 #include "command.h"
 #include "hardware.h"
+#include "version.h"
 
 // Incoming command buffer
 #define CMD_BUF_LEN 65536
@@ -74,9 +75,24 @@ void cmd_decode() {
 	printf("\tCommand is: %s\r\n", cmd_word);
 
 	if (!strcmp(cmd_word, "*IDN?") || !strcmp(cmd_word, "IDN?")) {
-		printf("TESTING");
+		print_id();
 	}
 
 }
 
+void print_id() {
+	static bool firstrun = true;
 
+	if (firstrun) {
+		// Update ID string on first run
+		pico_get_unique_board_id_string(bid_buf, BID_BUF_LEN);
+		firstrun = false;
+	}
+
+	printf(
+		"pico-pulse v%d.%d, board id: %s\r\n",
+		VERSION_MAJOR,
+		VERSION_MINOR,
+		bid_buf
+	);
+}

@@ -1,0 +1,3 @@
+// Store version info from CMake
+#define VERSION_MAJOR @pico-pulse_VERSION_MAJOR@
+#define VERSION_MINOR @pico-pulse_VERSION_MINOR@

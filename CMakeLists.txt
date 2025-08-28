@@ -5,9 +5,12 @@ cmake_minimum_required(VERSION 3.12)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 # Set name of project (as PROJECT_NAME) and C/C++ standards
-project(modulator C CXX ASM)
+project(pico-pulse VERSION 0.1 LANGUAGES C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
+
+# Generate version header
+configure_file(${CMAKE_CURRENT_LIST_DIR}/src/version.h.in version.h)
 
 # Creates a pico-sdk subdirectory in our project for the libraries
 pico_sdk_init()
@@ -18,6 +21,8 @@ add_compile_options(-Wall)
 add_executable(pico-pulse)
 
 pico_generate_pio_header(pico-pulse ${CMAKE_CURRENT_LIST_DIR}/src/pico-pulse.pio)
+
+
 
 target_sources(pico-pulse PRIVATE src/main.c src/hardware.c src/command.c)
 
