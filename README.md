@@ -21,7 +21,7 @@ Upload the binary to the Pico 2 either by copying the UF2 file to it in bootsel 
 ## Usage
 
 The pico-pulse is designed to be controlled by a PC over a USB link. It accepts commands in plaintext.
-See `INTERFACING.md` for a list of commands.
+See [INTERFACING](INTERFACING.md) for a list of commands.
 
 ## Credits
 The PIO code is based on the pio_blink example from the [pico-examples](https://github.com/raspberrypi/pico-examples) repo.
