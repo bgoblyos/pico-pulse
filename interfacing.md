@@ -8,11 +8,14 @@ It is designed to integrate with the VISA framework and uses plaintext serial co
 
 The following quirks of the system should be taken into account when sending commands to the pico-pulse:
 
-  - Multiple write in quick succession (within ~20 ms) may cause data to be lost. To avoid this,
+  - Multiple writes in quick succession (within ~20 ms) may cause data to be lost. To avoid this,
     use queries for every command. Commands that do not have a return value will instead send an "ACK".
-  - The timing between a sequence finishing and being restarted is not guaranteed to be consistent and there may be a delay, during which the last pulse of the sequence will continue to be generated. During testing, this delay was measured to be 200 ns (30 CPU clock cycles), but don't rely on this timing.
-    It is thus recommended to terminate your sequences with a short 0 "turn everything off" pulse. A long (over 1 us) 0 pulse at the end of the sequence will also give time for the CPU to restart the DMA before the PIO runs dry,
-    resulting in consistent, but long donwtimes between sequences. 
+  - The timing between a sequence finishing and being restarted is not guaranteed to be consistent and there may be a delay,
+    during which the last pulse of the sequence will continue to be generated. During testing, this delay was measured to be 200 ns (30 CPU clock cycles),
+    but don't rely on this timing. It is recommended to terminate your sequences with a short 0 "turn everything off" pulse. A long (over 1 us) 0 pulse at
+    the end of the sequence will also give time for the CPU to restart the DMA before the PIO runs dry, resulting in consistent,
+    but long donwtimes between sequences. It is also possible to copy your sequence into the sequence buffer multiple times to turn it into a longer,
+    repeating sequence and thus eliminate all downtime.
   - The device can generate pulses with a temporal resolution of 1 CPU cycle, but each pulse must be at least 4 cycles long. Timings will be rounded up to 4 cycles if they are too short,
     otherwise they will be rounded down to an integer amount of cycles.
 
