@@ -1,0 +1,55 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "0817dce729f3b002e8507d1effafb3efbddaba23f5f0f7dc8243c8531b8797bc"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.13"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "pyserial": {
+            "hashes": [
+                "sha256:3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb",
+                "sha256:c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0"
+            ],
+            "index": "pypi",
+            "version": "==3.5"
+        },
+        "pyvisa": {
+            "hashes": [
+                "sha256:cec3cb91703a2849f6faa42b1ecd7689a0175baabff8ca33fce9f45934ce45e6",
+                "sha256:e3ac8d9e863fbdbbe7e6d4d91401bceb7914d1c4a558a89b2cc755789f1e8309"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.10'",
+            "version": "==1.15.0"
+        },
+        "pyvisa-py": {
+            "hashes": [
+                "sha256:0254b8ee711c4ca6c5ff6b7450b900af6347a23d25c0f0169f94952b324b4130",
+                "sha256:cfadb9faeb9499e53ce52d9d7f1558e6663e78f7f0431c775aa49ce925e08917"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.10'",
+            "version": "==0.8.0"
+        },
+        "typing-extensions": {
+            "hashes": [
+                "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466",
+                "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"
+            ],
+            "markers": "python_version >= '3.9'",
+            "version": "==4.15.0"
+        }
+    },
+    "develop": {}
+}
