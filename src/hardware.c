@@ -23,8 +23,8 @@ uint32_t pio_max_inst = 0;
 uint32_t pio_num_chan = 0;
 
 // DMA looping flags, mostly used in main but required for stop_all
-extern bool loop_inf;
-extern uint32_t loop_n;
+extern uint32_t loop;
+extern const uint32_t loop_inf_val;
 
 void init_pio(uint base_gpio, uint n_gpio) {
 	// Store number of channels for late use
@@ -83,8 +83,7 @@ void start_dma() {
 // Stop DMA and flush PIO FIFO
 void stop_all() {
 	// Turn off infinite DMA looping and set loop count to 0
-	loop_inf = false;
-	loop_n = 0;
+	loop = 0;
     // Disable state machine
 	pio_sm_set_enabled(pio, sm, true);
 	// Stop DMA
