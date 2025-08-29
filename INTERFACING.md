@@ -16,8 +16,8 @@ The following quirks of the system should be taken into account when sending com
     the end of the sequence will also give time for the CPU to restart the DMA before the PIO runs dry, resulting in consistent,
     but long donwtimes between sequences. It is also possible to copy your sequence into the sequence buffer multiple times to turn it into a longer,
     repeating sequence and thus eliminate all downtime.
-  - The device can generate pulses with a temporal resolution of 1 CPU cycle, but each pulse must be at least 4 cycles long. Timings will be rounded up to 4 cycles if they are too short,
-    otherwise they will be rounded down to an integer amount of cycles.
+  - The device can generate pulses with a temporal resolution of 1 CPU cycle, but each pulse must be at least 4 cycles long.
+    Timings will be rounded up to 4 cycles if they are too short, otherwise they will be rounded down to an integer amount of cycles.
 
 ## Available commands
 
@@ -63,16 +63,13 @@ Returns the number of times the sequence has been copied into the buffer.
          Setting this parameter to 2^32-1 will result in the sequence being repeated indefinitely until it is aborted.
          As the CPU needs to restart the DMA each time, a small delay mas be introduced repeats.
   - `ti`: Time of i-th pulse in nanoseconds, whole numbers only. Actual pulse time will be rounded down to the nearest multiple of the system clock period time.
-          The time is loaded into an unsigned 64 bit integer and multiplied by the clock rate before division by 1e9, therefore the product must also fit into 64 bits.
-          Overflowing the caclulation by supplying a large time (over 100s) will raise an error, so it is recommended to use `CPULSE` is such cases, as it doesn't do any
-          multiplication and can utilize all 64 bits.
   - `pi`: Output states during the i-th pulse. Accepts whole numbers between 0-31, each bit representing a channel.
 
 ### `CPULSE m n t1,p1,t2,p2,...`
 
 Same as `PULSE`, but timings are given in clock cycles. Pulses must be at least 4 cycles long (will be rounded up to 4 otherwise).
-ives more control over rounding than the nanosecocond method and greatly extends the maximum pulse length,
-but requires knowledge of the clock frequency (see `CLK?`).
+ives more control over rounding than the nanosecocond method and extends the maximum pulse length
+(as no math needs to be done and the input can utilize all 64 bits), but requires knowledge of the clock frequency (see `CLK?`).
 
 ### `RUN n`
 

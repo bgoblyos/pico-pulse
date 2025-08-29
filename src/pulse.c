@@ -10,6 +10,10 @@
 #define PARSER_EMPTY 1
 #define PARSER_FAILURE 2
 
+// Primes for finding greatest common divisor
+#define GCD_PRIMES_LEN 2
+const uint64_t primes[GCD_PRIMES_LEN] = {2, 5}; // We only deal with multiples of 10 for now
+
 // Pull in CPU clock rate from main.c
 extern uint32_t cpu_clk;
 
@@ -91,6 +95,8 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 	static uint32_t out;
 	static uint64_t time;
 	static uint64_t delay;
+	static uint64_t simplify;
+	static const uint64_t s_to_ns = 1000000000;
 	static uint32_t full_pulses;
 	static uint32_t remainder;
 	uint64_t max_cycles = (1 << (32 - pio_n_gpio)) - 1 + pio_extra_cycles;
@@ -118,11 +124,12 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 		delay = time;
 	}
 	else {
-		if (time > (~(uint64_t)0 / cpu_clk)) {
+		simplify = gcd(cpu_clk, s_to_ns); // Find simplification factor for cpu_clk/s_to_ns
+		if (time > (~(uint64_t)0 / (cpu_clk / simplify))) {
 			strcpy(err, "Time is too long to process! Consider using cycle timings instead.");
 			return PARSER_FAILURE;
 		}
-		delay = ((uint64_t)cpu_clk * time) / 1000000000; // Convert ns to cycles
+		delay = time * (cpu_clk / simplify) / (s_to_ns / simplify); // Convert ns to cycles
 	}
 	delay = delay > pio_extra_cycles ? delay : pio_extra_cycles;
 
@@ -160,4 +167,38 @@ bool attempt_insertion(uint32_t delay, uint32_t output, uint32_t i) {
 
 	pio_buf[i] = val;
 	return true;
+}
+
+uint64_t gcd(uint64_t a, uint64_t b) {
+	// Cache previous entry, as this function is expected to be called
+	// multiple times with the same arguments
+	static uint64_t a_cache = 0;
+	static uint64_t b_cache = 0;
+	static uint64_t r_cache = 1;
+
+	// Return cached result if possible
+	if (a == a_cache && b == b_cache) {
+		return r_cache;
+	} else {
+		a_cache = a;
+		b_cache = b;
+	}
+
+	uint64_t r = 1;
+	bool keepgoing = true;
+
+	while (keepgoing) {
+		keepgoing = false;
+		for (uint32_t i = 0; i < GCD_PRIMES_LEN; i++) {
+			if ((a % primes[i]) == 0 && (b % primes[i]) == 0) {
+				r *= primes[i];
+				a /= primes[i];
+				b /= primes[i];
+				keepgoing = true;
+			}
+		}
+	}
+
+	r_cache = r;
+	return r;
 }
