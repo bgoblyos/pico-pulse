@@ -8,4 +8,3 @@ void print_clk(void);
 void print_buf(void);
 void print_maxt(void);
 void print_busy(void);
-void decode_pulse(char* next_token);

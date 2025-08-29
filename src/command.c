@@ -12,6 +12,7 @@
 #include "command.h"
 #include "hardware.h"
 #include "version.h"
+#include "pulse.h"
 
 // Incoming command buffer
 #define CMD_BUF_LEN 65536
@@ -103,7 +104,9 @@ void cmd_decode() {
 	} else if (!strcmp(cmd_word, "BUSY?")) {
 		print_busy();
 	} else if (!strcmp(cmd_word, "PULSE")) {
-		decode_pulse(next_token);
+		decode_sequence(next_token, false);
+	} else if (!strcmp(cmd_word, "CPULSE")) {
+		decode_sequence(next_token, true);
 	}
 	else {
 		printf("Error: command not recognized.\n");
@@ -146,96 +149,3 @@ void print_maxt() {
 
 void print_busy() { printf("%lu\n", is_busy()); }
 
-// Decodes pulse sequence and 
-void decode_pulse(char* next_token) {
-	static char* tmp;
-	static uint64_t time_ns;
-	static uint64_t time_cycles;
-	static uint32_t out;
-	static uint32_t delay;
-	uint32_t i = 0;
-	uint32_t max_cycles = (1 << (32 - pio_n_gpio)) - 1 + pio_extra_cycles;
-
-	tmp = strtok_r(NULL, " ", &next_token);
-	uint32_t m_target = strtoul(tmp, NULL, 10);
-	
-	tmp = strtok_r(NULL, " ", &next_token);
-	uint32_t n = strtoul(tmp, NULL, 10);
-
-	// If we don't intent to start immediately and the DMA is empty,
-	// we don't need to abort the current run
-	if (!(n == 0 && is_busy() != 2)) {
-		stop_all();
-	}
-
-	// Set looping to n
-	loop = n;
-
-	// Parsing loop
-	while (1) {
-
-		// Read time from parameter list
-		tmp = strtok_r(NULL, ",", &next_token);
-		if (tmp)
-			time_ns = strtoull(tmp, NULL, 10);
-		else
-			break; // If there's nothing, we reached the end of the equence
-
-		tmp = strtok_r(NULL, ",", &next_token);
-		if (tmp) {
-			out = strtoul(tmp, NULL, 10);
-			if (out >= (1 << pio_n_gpio )) {
-				printf("Error: Invalid pulse number!\n");
-				loop = 0;      // Ensure defective sequence isn't started automatically
-				dma_count = 0; // Make sure DMA won't do anything even if started with RUN
-				return;
-			}
-		}
-		else {
-			printf("Error: unmatched pulse entry detected.\n");
-			loop = 0;      // Ensure defective sequence isn't started automatically
-			dma_count = 0; // Make sure DMA won't do anything even if started with RUN
-			return;
-		}
-
-		// Encode pulse for the PIO
-		time_cycles = (cpu_clk * time_ns) / 1000000000;
-
-		// If time_cycles is too long, create multiple identical pulses
-		for (uint32_t j = 0; j < time_cycles / max_cycles; j++) {
-			if (i < pio_buf_len) {
-				delay = max_cycles < pio_extra_cycles ? pio_extra_cycles : max_cycles;
-				pio_buf[i++] = ((delay - pio_extra_cycles) << pio_n_gpio) | out;
-			}
-			else {
-				printf("Error: buffer has been overrun!");
-				loop = 0;      // Ensure defective sequence isn't started automatically
-				dma_count = 0; // Make sure DMA won't do anything even if started with RUN
-				return;
-			}
-		}
-		
-		// Add remainder
-		if (time_cycles % max_cycles != 0) {
-			if (i < pio_buf_len) {
-				delay = (time_cycles % max_cycles) < pio_extra_cycles ? pio_extra_cycles : (time_cycles % max_cycles);
-				pio_buf[i++] = ((delay - pio_extra_cycles) << pio_n_gpio) | out;
-			}
-			else {
-				printf("Error: buffer has been overrun!");
-				loop = 0;      // Ensure defective sequence isn't started automatically
-				dma_count = 0; // Make sure DMA won't do anything even if started with RUN
-				return;
-			}
-		}
-		
-	}
-
-	// TODO: Copy sequence multiple times
-	
-	dma_count = i;
-	
-	for (uint32_t j = 0; j < i; j++)
-		printf("%lu,", pio_buf[j]);
-	printf("\n");
-}

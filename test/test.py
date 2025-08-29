@@ -21,8 +21,5 @@ wrap_query("CLK?")
 wrap_query("BUFFER?")
 wrap_query("MAXT?")
 
-#wrap_query("PULSE 12 34 500000000,0,500000000,31")
-wrap_query("PULSE 12 34 1500000000,0,1500000000,31")
-#wrap_query("PULSE 12 34 500000000,0,500000000,32")
-#wrap_query("PULSE 12 34 500000000,0,500000000")
-#wrap_query("PULSE 12 34")
+for i in range(65):
+    wrap_query(f"CPULSE 0 0 {(1 << i) - 2},31,1,0")
