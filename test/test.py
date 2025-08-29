@@ -8,7 +8,8 @@ port = "/dev/ttyACM0"
 
 # Open resource. The baud rate may not be necessary when using the USB
 # connection directly instead of bridging UART with a second Pico
-dev = rm.open_resource(f"ASRL{port}::INSTR", baud_rate=115200)
+# dev = rm.open_resource(f"ASRL{port}::INSTR", baud_rate=115200)
+dev = rm.open_resource(f"ASRL{port}::INSTR")
 
 def wrap_query(q):
     print(f"Query: {repr(q)}")
@@ -22,7 +23,9 @@ wrap_query("BUFFER?")
 wrap_query("MAXT?")
 
 wrap_query("PULSE 1 10 500000000,31,500000000,0")
-"""
+
+time.sleep(2)
+
 for i in range(65):
     wrap_query(f"PULSE 0 0 {(1 << i) - 2},31,1,0")
-"""
+

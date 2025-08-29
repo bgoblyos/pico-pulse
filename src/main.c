@@ -11,6 +11,7 @@
 
 #include "hardware.h"
 #include "command.h"
+#include "status.h"
 
 // PIO parameters
 // Defined here for ease of access
@@ -38,6 +39,10 @@ extern bool rx_available;       // Indicate whether a character is avaialble on 
 
 
 int main() {
+	// Initialize status LED
+	status_init();
+	status_on();
+
     // Initialize serial communication on UART
     setup_default_uart();
 	stdio_init_all();
@@ -51,16 +56,7 @@ int main() {
     // Get system clock speed
     cpu_clk = clock_get_hz(clk_sys);
 
-	// Test DMA, remove once commands are implemented
-	dma_count = 32;
-    loop = 10;
-    float freq = 8.0;
-    uint32_t delay = (uint32_t)(clock_get_hz(clk_sys) / freq) - 4;
-    for (uint i = 0; i < 32; i++) {
-		pio_buf[i] = (delay << pio_n_gpio | i);
-    }
-
-    start_dma();
+	status_off();
 
     // Main loop
 	while (1) {
@@ -73,13 +69,14 @@ int main() {
 
 		// If a new command has been read in, decode it
 		if (cmd_ready) {
+			status_on();
 			cmd_decode();
 			// Indicate that command has been processed
 			cmd_ready = false;
+			status_off();
 		}
 
 		// If DMA looping is requested and DMA is idle, restart it
-		// TODO: Perhaps this should be implemented as an interrupt handler?
 		if (loop != 0 && !dma_channel_is_busy(dma)) {
 			start_dma();
 			// If looping is finite, decrement counter

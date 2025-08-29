@@ -87,6 +87,8 @@ void decode_sequence(char* next_token, bool time_in_cycles) {
 	printf(" counter is %lu\n", i);
 
 	loop = n;
+
+	// TODO: implement inner loops
 	dma_count = i; // Change this once inner loops are implemented
 }
 
