@@ -82,14 +82,29 @@ void decode_sequence(char* next_token, bool time_in_cycles) {
 		}
 	}
 
-	for (uint32_t j = 0; j < i; j++)
-		printf("%lu,", pio_buf[j]);
-	printf(" counter is %lu\n", i);
 
 	loop = n;
 
-	// TODO: implement inner loops
-	dma_count = i; // Change this once inner loops are implemented
+	// Max number of inner loops that fit in the buffer
+	uint32_t m_max = pio_buf_len / i;
+
+	// Set actual number of inner loops
+	uint32_t m;
+	if (m_target == 0)
+		m = m_max;
+	else
+		m = m_target < m_max ? m_target : m_max;
+
+	// Copy contents inside the buffer
+	for (uint32_t j = 1; j < m; j++)
+		memcpy(
+			pio_buf + (i * j),
+			pio_buf,
+			i * sizeof(pio_buf[0])
+		);
+
+	dma_count = i*m;
+	printf("OK, m = %lu, n = %lu, l_seq = %lu, l_total = %lu, buf_util = %.2f\n", m, n, i, m*i, (100.0*m*i)/pio_buf_len);
 }
 
 uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool time_in_cycles) {
@@ -101,6 +116,8 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 	static const uint64_t s_to_ns = 1000000000;
 	static uint32_t full_pulses;
 	static uint32_t remainder;
+	static bool rem_correction;
+	static uint32_t temp_delay;
 	uint64_t max_cycles = (1 << (32 - pio_n_gpio)) - 1 + pio_extra_cycles;
 
 	// Read time from parameter list
@@ -126,30 +143,56 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 		delay = time;
 	}
 	else {
-		simplify = gcd(cpu_clk, s_to_ns); // Find simplification factor for cpu_clk/s_to_ns
+		// Find simplification factor for cpu_clk/s_to_ns. As these are all large, likely round numbers,
+		// this helps us stay within the bounds of 64 bit integers.
+		simplify = gcd(cpu_clk, s_to_ns); 
+		// If time * (cpu_clk / simplify) would cause an overflow, abort
 		if (time > (~(uint64_t)0 / (cpu_clk / simplify))) {
 			strcpy(err, "Time is too long to process! Consider using cycle timings instead.");
 			return PARSER_FAILURE;
 		}
 		delay = time * (cpu_clk / simplify) / (s_to_ns / simplify); // Convert ns to cycles
 	}
+
+	// If the delay is too short, round it up to the shortest possible value
 	delay = delay > pio_extra_cycles ? delay : pio_extra_cycles;
 
+	// Calculate values for splitting a large pulse
 	full_pulses = delay / max_cycles;
 	remainder = delay % max_cycles;
 	
+	// If the remainder is too short, it will be extended, throwing off the timing.
+	// We can correct this by subtracting pio_extra_cycles from one of the full pulses
+	// and adding itto the partial one.
+	rem_correction = (remainder != 0) && (remainder < pio_extra_cycles);
+
+	// Insert full pulses
 	if (full_pulses != 0)
-		for (uint32_t j = 0; j < delay / max_cycles; j++)
-			if (!attempt_insertion(max_cycles, out, (*i_ptr)++)) {
+		for (uint32_t j = 0; j < delay / max_cycles; j++) {
+			// If a correction is required, shorten the first pulse
+			if (rem_correction && j == 0)
+				temp_delay = max_cycles - pio_extra_cycles;
+			else
+				temp_delay = max_cycles;
+
+			if (!attempt_insertion(temp_delay, out, (*i_ptr)++)) {
 				strcpy(err, "Insertion failed, buffer has been overrun.");
 				return PARSER_FAILURE;
 			}
+		}
 
-	if (remainder != 0)
-		if (!attempt_insertion(remainder, out, (*i_ptr)++)) {
+	if (remainder != 0) {
+		// If a correction is required, extend this pulse
+		if (rem_correction)
+			temp_delay = remainder + pio_extra_cycles;
+		else
+			temp_delay = remainder;
+
+		if (!attempt_insertion(temp_delay, out, (*i_ptr)++)) {
 			strcpy(err, "Insertion failed, buffer has been overrun.");
 			return PARSER_FAILURE;
 		}
+	}
 
 	return PARSER_SUCCESS;
 
