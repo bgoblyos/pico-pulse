@@ -68,7 +68,7 @@ Returns the number of times the sequence has been copied into the buffer.
 ### `CPULSE m n t1,p1,t2,p2,...`
 
 Same as `PULSE`, but timings are given in clock cycles. Pulses must be at least 4 cycles long (will be rounded up to 4 otherwise).
-ives more control over rounding than the nanosecocond method and extends the maximum pulse length
+Gives more control over rounding than the nanosecocond method and extends the maximum pulse length
 (as no math needs to be done and the input can utilize all 64 bits), but requires knowledge of the clock frequency (see `CLK?`).
 
 ### `RUN n`
