@@ -31,4 +31,13 @@ target_link_libraries(pico-pulse PRIVATE pico_stdlib pico_unique_id hardware_pio
 pico_enable_stdio_usb(pico-pulse 1)
 
 # Build UF2 files as well
-# pico_add_extra_outputs(pico-pulse)
+pico_add_extra_outputs(pico-pulse)
+
+target_compile_definitions(pico-pulse PRIVATE
+        PLL_SYS_REFDIV=1
+        PLL_SYS_VCO_FREQ_HZ=1200000000
+        PLL_SYS_POSTDIV1=6
+        PLL_SYS_POSTDIV2=1
+        SYS_CLK_HZ=200000000
+)
+
