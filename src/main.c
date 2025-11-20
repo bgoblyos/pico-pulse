@@ -12,7 +12,7 @@
 #include "hardware.h"
 #include "command.h"
 #include "status.h"
-
+#include "exp.h"
 // PIO parameters
 // Defined here for ease of access
 const uint pio_base_gpio = 2;              // Number of first GPIO to be used as output
@@ -58,6 +58,7 @@ int main() {
 
 	status_off();
 
+	testLoop();
     // Main loop
 	while (1) {
 		// If there are characters available, read one of them in.
