@@ -12,10 +12,13 @@
 #include "hardware.h"
 #include "command.h"
 #include "status.h"
+#include "rheostat.h"
+#include "laser.h"
+
 
 // PIO parameters
 // Defined here for ease of access
-const uint pio_base_gpio = 2;              // Number of first GPIO to be used as output
+const uint pio_base_gpio = 6;              // Number of first GPIO to be used as output
 const uint pio_n_gpio = 5;                 // Number of consecutive GPIOs to use. Don't forget to update the PIO code if you change this!
 const uint32_t pio_extra_cycles = 4;       // Number of cycles it takes the PIO to loop if the delay is 0
 #define PIO_BUF_LEN 65536                  // PIO instruction buffer length
@@ -43,6 +46,9 @@ int main() {
 	status_init();
 	status_on();
 
+	// Initialize rheostats for power control and current limiting
+	init_rheostats();
+
     // Initialize serial communication on UART
     setup_default_uart();
 	stdio_init_all();
@@ -56,6 +62,10 @@ int main() {
     // Get system clock speed
     cpu_clk = clock_get_hz(clk_sys);
 
+	// Enable laser driver
+	init_laser();
+
+	// Indicate that setup is complete
 	status_off();
 
     // Main loop

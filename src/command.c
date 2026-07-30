@@ -13,6 +13,8 @@
 #include "hardware.h"
 #include "version.h"
 #include "pulse.h"
+#include "laser.h"
+#include "rheostat.h"
 
 // Incoming command buffer
 #define CMD_BUF_LEN 65536
@@ -53,7 +55,7 @@ void cmd_read_char() {
     rx_tmp = stdio_getchar_timeout_us(0);
 
 	// If the new character is received successfully, process it
-	if (rx_tmp != -2) {
+	if (rx_tmp != PICO_ERROR_TIMEOUT) {
     	// If character is LF or CR or we ran out of space, terminate string and hand off
     	// into another buffer for further processing. The non-zero length check prevents
     	// extra line terminations, so CRLF doesn't result in a new zero-length string
@@ -107,6 +109,18 @@ void cmd_decode() {
 		decode_sequence(next_token, false);
 	} else if (!strcmp(cmd_word, "CPULSE")) {
 		decode_sequence(next_token, true);
+	} else if (!strcmp(cmd_word, "LASER")) {
+		set_laser_state_cmd(next_token);
+	} else if (!strcmp(cmd_word, "LASER?")) {
+		get_laser_state_cmd();
+	} else if (!strcmp(cmd_word, "MON") || !strcmp(cmd_word, "MONITOR")) {
+		set_monitor_current_cmd(next_token);
+	} else if (!strcmp(cmd_word, "MON?") || !strcmp(cmd_word, "MONITOR?")) {
+		get_monitor_current_cmd();
+	} else if (!strcmp(cmd_word, "LIM") || !strcmp(cmd_word, "LIMIT")) {
+		set_current_limit_cmd(next_token);
+	} else if (!strcmp(cmd_word, "LIM?") || !strcmp(cmd_word, "LIMIT?")) {
+		get_current_limit_cmd();
 	}
 	else {
 		printf("Error: command not recognized.\n");

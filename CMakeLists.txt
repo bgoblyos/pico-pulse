@@ -24,9 +24,9 @@ pico_generate_pio_header(pico-pulse ${CMAKE_CURRENT_LIST_DIR}/src/pico-pulse.pio
 
 
 
-target_sources(pico-pulse PRIVATE src/main.c src/hardware.c src/command.c src/pulse.c src/status.c)
+target_sources(pico-pulse PRIVATE src/main.c src/hardware.c src/command.c src/pulse.c src/status.c src/rheostat.c src/laser.c)
 
-target_link_libraries(pico-pulse PRIVATE pico_stdlib pico_unique_id hardware_pio hardware_dma)
+target_link_libraries(pico-pulse PRIVATE pico_stdlib pico_unique_id hardware_pio hardware_dma hardware_i2c)
 
 pico_enable_stdio_usb(pico-pulse 1)
 
