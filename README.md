@@ -3,6 +3,8 @@
 This firmware turns the Raspberry Pi Pico 2 into a signal generator capable of producing precisely times pulses on up to 5 channels.
 It is designed primarily for use in optically detected magnetic resonance (ODMR) experiments.
 
+The firmware can also operate the iC-NZN laser driver and the two rheostats present on the [pico-pulse-integrated](https://github.com/bgoblyos/pico-pulse-integrated) board.
+
 ## Installation
 
 Ensure that the Pi Pico C SDK is installed and the `PICO_SDK_PATH` env variable points to it.
