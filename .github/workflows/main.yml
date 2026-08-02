@@ -39,6 +39,8 @@ jobs:
       - name: Build Project
         working-directory: ${{github.workspace}}/pico-pulse
         shell: bash
+        env:
+          PICO_SDK_PATH: ${{github.workspace}}/pico-sdk
         run: |
           echo ${{ github.ref }}
           mkdir build
