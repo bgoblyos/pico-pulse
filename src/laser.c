@@ -42,3 +42,8 @@ void get_laser_state_cmd() {
     int val = laser_state ? 1 : 0;
     printf("%d\n", val);
 }
+
+void get_laser_error_cmd() {
+    int val = get_laser_error() ? 1 : 0;
+    printf("%d\n", val);
+}

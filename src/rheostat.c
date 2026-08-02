@@ -13,8 +13,8 @@
 #include "rheostat.h"
 
 #define I2C_DEV i2c0
-#define I2C_SDA 6
-#define I2C_SCL 7
+#define I2C_SDA 4
+#define I2C_SCL 5
 #define I2C_SPD 100000
 
 #define MON_ADDR 0x2E
@@ -84,7 +84,7 @@ int set_rheostat_position(uint8_t addr, int value) {
 
     printf("Bytes sent: %" PRIu8 ", %" PRIu8 "\n", transmit[0], transmit[1]);
 
-    return i2c_write_blocking (I2C_DEV, addr, transmit, 2, false);
+    return i2c_write_timeout_us(I2C_DEV, addr, transmit, 2, false, 1000000);
 }
 
 float state_to_monitor(int state) {
@@ -99,13 +99,15 @@ float state_to_limit(int state) {
 
 // Set the monitor rheostat in order to achieve the specified target current
 float set_monitor_current(float current_A) {
-    float resistance = 0.51 / (current_A) - 1000;
+    float resistance = (0.51 / current_A) - 1000;
     int requested = round(255*(resistance/2e4));
 
     if (requested < 0)
         requested = 0;
     else if (requested > 255)
         requested = 255;
+
+    printf("Current: %f, Resistance: %f Ohm\nRheostat position: %" PRIu8 "\n", current_A, resistance, requested);
 
     int retcode = set_rheostat_position(MON_ADDR, requested);
 

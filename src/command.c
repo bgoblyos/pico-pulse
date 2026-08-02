@@ -36,7 +36,7 @@ extern const uint32_t pio_buf_len;
 extern const uint32_t pio_extra_cycles;
 extern const uint pio_n_gpio;
 
-// Pull in DMA variables from main.c
+// Pull in DMA variables from hardware.c
 extern uint32_t loop;
 extern int dma;
 extern uint dma_count;
@@ -113,6 +113,10 @@ void cmd_decode() {
 		set_laser_state_cmd(next_token);
 	} else if (!strcmp(cmd_word, "LASER?")) {
 		get_laser_state_cmd();
+	} else if (!strcmp(cmd_word, "LERR?")) {
+		get_laser_error_cmd();
+	} else if (!strcmp(cmd_word, "BUSSCAN?")) {
+		bus_scan();
 	} else if (!strcmp(cmd_word, "MON") || !strcmp(cmd_word, "MONITOR")) {
 		set_monitor_current_cmd(next_token);
 	} else if (!strcmp(cmd_word, "MON?") || !strcmp(cmd_word, "MONITOR?")) {
