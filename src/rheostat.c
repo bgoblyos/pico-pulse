@@ -23,8 +23,15 @@
 int mon_state = 0;
 int lim_state = 0;
 
+// TODO: make it so a failure here prevents the laser driver from turning on.
 void init_rheostats(void) {
     setup_i2c();
+
+    // Disable write protect
+    uint8_t transmit[2] = {0x1C, 0x02}; // Sets write protect bit to 1 (write enabled)
+    i2c_write_timeout_us(I2C_DEV, MON_ADDR, transmit, 2, false, 100000);
+    i2c_write_timeout_us(I2C_DEV, LIM_ADDR, transmit, 2, false, 100000);
+
     // Initilaize limits to safe values
     set_monitor_current(25e-6); // 25 uA
     set_current_limit(55e-3);   // 55 mA
@@ -84,7 +91,7 @@ int set_rheostat_position(uint8_t addr, int value) {
 
     printf("Bytes sent: %" PRIu8 ", %" PRIu8 "\n", transmit[0], transmit[1]);
 
-    return i2c_write_timeout_us(I2C_DEV, addr, transmit, 2, false, 1000000);
+    return i2c_write_timeout_us(I2C_DEV, addr, transmit, 2, false, 100000);
 }
 
 float state_to_monitor(int state) {
@@ -99,6 +106,12 @@ float state_to_limit(int state) {
 
 // Set the monitor rheostat in order to achieve the specified target current
 float set_monitor_current(float current_A) {
+    // Clamp input to reasonable range
+    if (current_A > 0.00051)
+        current_A = 0.00051;
+    else if (current_A < 2.42857e-5)
+        current_A = 2.42857e-5;
+
     float resistance = (0.51 / current_A) - 1000;
     int requested = round(255*(resistance/2e4));
 
@@ -120,6 +133,12 @@ float set_monitor_current(float current_A) {
 }
 
 float set_current_limit(float current_A) {
+    // Clamp input to reasonable range
+    if (current_A > 1.1394)
+        current_A = 1.1394;
+    else if (current_A < 0.054305)
+        current_A = 0.054305;
+
     float resistance = (364 / (current_A - 0.0364)) - 330;
     int requested = round(255*(resistance/2e4));
 
