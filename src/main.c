@@ -15,7 +15,6 @@
 #include "rheostat.h"
 #include "laser.h"
 
-
 // PIO parameters
 // Defined here for ease of access
 const uint pio_base_gpio = 6;              // Number of first GPIO to be used as output
