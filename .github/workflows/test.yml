@@ -1,0 +1,42 @@
+name: Build and Publish Nightly Revisions
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        board_rev: ['bare', 'integrated_v0.2', 'integrated_v0.2_hp']
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v7
+
+      - name: Checkout pico-sdk/develop
+        uses: actions/checkout@v7
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: develop
+          path: pico-sdk
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+
+      - name: Build Firmware
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: |
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico2_w -DBOARD_REV=${{ matrix.board_rev }}
+          cmake --build .
+          
+          mv *.uf2 pico-pulse-${{ matrix.board_rev }}.uf2
