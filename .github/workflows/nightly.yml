@@ -31,7 +31,7 @@ jobs:
           fi
 
           # Get SHA of the latest commit tagged on the nightly release
-          NIGHTLY_SHA=$(gh release view nightly --json targetCommitish -q .targetCommitish 2>/dev/null || echo "")
+          NIGHTLY_SHA=$(gh api repos/${{ github.repository }}/git/ref/tags/nightly --jq .object.sha 2>/dev/null || echo "")
           CURRENT_SHA=$(git rev-parse HEAD)
 
           if [ "$NIGHTLY_SHA" = "$CURRENT_SHA" ]; then
@@ -69,6 +69,7 @@ jobs:
         env:
           PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
         run: |
+          rm -rf build
           mkdir build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico2_w -DBOARD_REV=${{ matrix.board_rev }}
@@ -97,6 +98,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: nightly
+          target_commitish: ${{ github.sha }}
           name: "Nightly Build"
           body: "Automated firmware build compiled from commit ${{ github.sha }}."
           prerelease: true
