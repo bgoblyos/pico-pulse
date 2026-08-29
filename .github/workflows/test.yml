@@ -1,4 +1,4 @@
-name: Build and Publish Nightly Revisions
+name: Build all board revisions on push
 
 on:
   workflow_dispatch:
