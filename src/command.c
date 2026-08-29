@@ -16,6 +16,8 @@
 #include "laser.h"
 #include "rheostat.h"
 
+#include "board_config.h"
+
 // Incoming command buffer
 #define CMD_BUF_LEN 65536
 char cmd_buf[CMD_BUF_LEN]; 
@@ -30,11 +32,8 @@ bool rx_available = false;        // Indicate whether a character is avaialble o
 // Pull in CPU clock rate from main.c
 extern uint32_t cpu_clk;
 
-// Pull in PIO variables from main.c
+// Pull in PIO buffer from main.c
 extern uint32_t pio_buf[];
-extern const uint32_t pio_buf_len;
-extern const uint32_t pio_extra_cycles;
-extern const uint pio_n_gpio;
 
 // Pull in DMA variables from hardware.c
 extern uint32_t loop;
@@ -115,8 +114,6 @@ void cmd_decode() {
 		get_laser_state_cmd();
 	} else if (!strcmp(cmd_word, "LERR?")) {
 		get_laser_error_cmd();
-	} else if (!strcmp(cmd_word, "BUSSCAN?")) {
-		bus_scan();
 	} else if (!strcmp(cmd_word, "MON") || !strcmp(cmd_word, "MONITOR")) {
 		set_monitor_current_cmd(next_token);
 	} else if (!strcmp(cmd_word, "MON?") || !strcmp(cmd_word, "MONITOR?")) {
@@ -141,22 +138,23 @@ void print_id() {
 	}
 
 	printf(
-		"pico-pulse v%d.%d, board id: %s\n",
+		"{\"firmware\": \"pico-pulse\", \"version\": \"v%d.%d\", \"serial\": \"%s\", \"hardware_revision\": \"%s\" }\n",
 		VERSION_MAJOR,
 		VERSION_MINOR,
-		bid_buf
+		bid_buf,
+		BOARD_NAME
 	);
 }
 
 void print_clk() { printf("%lu\n", cpu_clk); }
 
-void print_buf() { printf("%lu\n", pio_buf_len); }
+void print_buf() { printf("%lu\n", (uint32_t)PIO_BUF_LEN); }
 
 void print_maxt() {
 	// Conversion factor from seconds to nanoseconds
 	static const uint64_t conv_factor = 1000000000;
 	// Absolute maximum delay achieveable with a single pulse
-	uint64_t max_cycles = (1 << (32 - pio_n_gpio)) - 1 + pio_extra_cycles;
+	uint64_t max_cycles = (1 << (32 - PIO_N_GPIO)) - 1 + PIO_EXTRA_CYCLES;
 	// Perform multiplication first to avoid floating point math later on
 	uint64_t nanocycles = conv_factor * max_cycles;
 	// Perform division with clock rate

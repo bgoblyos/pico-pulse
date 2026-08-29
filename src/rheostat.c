@@ -12,16 +12,17 @@
 
 #include "rheostat.h"
 
-#define I2C_DEV i2c0
-#define I2C_SDA 4
-#define I2C_SCL 5
-#define I2C_SPD 100000
-
-#define MON_ADDR 0x2E
-#define LIM_ADDR 0x2F
+#include "board_config.h"
 
 int mon_state = 0;
 int lim_state = 0;
+
+float mon_max_current = 0;
+float mon_min_current = 0;
+float lim_max_current = 0;
+float lim_min_current = 0;
+
+#if USE_LASER_DRIVER
 
 // TODO: make it so a failure here prevents the laser driver from turning on.
 void init_rheostats(void) {
@@ -31,10 +32,17 @@ void init_rheostats(void) {
     uint8_t transmit[2] = {0x1C, 0x02}; // Sets write protect bit to 1 (write enabled)
     i2c_write_timeout_us(I2C_DEV, MON_ADDR, transmit, 2, false, 100000);
     i2c_write_timeout_us(I2C_DEV, LIM_ADDR, transmit, 2, false, 100000);
+	
+	// Calculate constants
+	mon_max_current = state_to_monitor(0);
+	mon_min_current = state_to_monitor(255);
+
+	lim_max_current = state_to_limit(0);
+	lim_min_current = state_to_limit(255);
 
     // Initilaize limits to safe values
-    set_monitor_current(25e-6); // 25 uA
-    set_current_limit(55e-3);   // 55 mA
+    set_monitor_current(mon_min_current);
+    set_current_limit(lim_min_current);
 }
 
 void setup_i2c() {
@@ -43,39 +51,6 @@ void setup_i2c() {
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA);
     gpio_pull_up(I2C_SCL);
-}
-
-// Test functions from the SDK examples
-bool reserved_addr(uint8_t addr) {
-    return (addr & 0x78) == 0 || (addr & 0x78) == 0x78;
-}
-
-void bus_scan() {
-    printf("\nI2C Bus Scan\n");
-    printf("   0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F\n");
-
-    for (int addr = 0; addr < (1 << 7); ++addr) {
-        if (addr % 16 == 0) {
-            printf("%02x ", addr);
-        }
-
-        // Perform a 1-byte dummy read from the probe address. If a slave
-        // acknowledges this address, the function returns the number of bytes
-        // transferred. If the address byte is ignored, the function returns
-        // -1.
-
-        // Skip over any reserved addresses.
-        int ret;
-        uint8_t rxdata;
-        if (reserved_addr(addr))
-            ret = PICO_ERROR_GENERIC;
-        else
-            ret = i2c_read_blocking(I2C_DEV, addr, &rxdata, 1, false);
-
-        printf(ret < 0 ? "." : "@");
-        printf(addr % 16 == 15 ? "\n" : "  ");
-    }
-    printf("Done.\n");
 }
 
 int set_rheostat_position(uint8_t addr, int value) {
@@ -95,7 +70,7 @@ int set_rheostat_position(uint8_t addr, int value) {
 }
 
 float state_to_monitor(int state) {
-    return 0.51 / (state * 2e4 / 255.0 + 1e3);
+    return 0.51 / (state * 2e4 / 255.0 + LIM_SERIES_RES);
 }
 
 float state_to_limit(int state) {
@@ -107,12 +82,12 @@ float state_to_limit(int state) {
 // Set the monitor rheostat in order to achieve the specified target current
 float set_monitor_current(float current_A) {
     // Clamp input to reasonable range
-    if (current_A > 0.00051)
-        current_A = 0.00051;
-    else if (current_A < 2.42857e-5)
-        current_A = 2.42857e-5;
+    if (current_A > mon_max_current)
+        current_A = mon_max_current;
+    else if (current_A < mon_min_current)
+        current_A = mon_min_current;
 
-    float resistance = (0.51 / current_A) - 1000;
+    float resistance = (0.51 / current_A) - LIM_SERIES_RES;
     int requested = round(255*(resistance/2e4));
 
     if (requested < 0)
@@ -134,10 +109,10 @@ float set_monitor_current(float current_A) {
 
 float set_current_limit(float current_A) {
     // Clamp input to reasonable range
-    if (current_A > 1.1394)
-        current_A = 1.1394;
-    else if (current_A < 0.054305)
-        current_A = 0.054305;
+    if (current_A > lim_max_current)
+        current_A = lim_max_current;
+    else if (current_A < lim_min_current)
+        current_A = lim_min_current;
 
     float resistance = (364 / (current_A - 0.0364)) - 330;
     int requested = round(255*(resistance/2e4));
@@ -177,3 +152,37 @@ void get_monitor_current_cmd(void){
     float result = state_to_monitor(mon_state);
     printf("%f\n", result);
 }
+
+#else
+
+void init_rheostats(void) {}
+
+void setup_i2c() {}
+
+int set_rheostat_position(uint8_t addr, int value) {return 0;}
+
+float state_to_monitor(int state) {return 0.0;}
+
+float state_to_limit(int state) {return 0.0;}
+
+float set_monitor_current(float current_A) {return 0.0;}
+
+float set_current_limit(float current_A) {return 0.0;}
+
+void set_current_limit_cmd(char* next_token){
+    printf("ERR: This firmware was built without laser driver support.\n");
+}
+
+void get_current_limit_cmd(void){
+    printf("ERR: This firmware was built without laser driver support.\n");
+}
+
+void set_monitor_current_cmd(char* next_token){
+    printf("ERR: This firmware was built without laser driver support.\n");
+}
+
+void get_monitor_current_cmd(void){
+    printf("ERR: This firmware was built without laser driver support.\n");
+}
+
+#endif

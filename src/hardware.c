@@ -7,12 +7,10 @@
 #include "hardware/dma.h"
 #include "pico-pulse.pio.h"
 
+#include "board_config.h"
+
 // Pull in PIO related constants from main.c
 extern uint32_t pio_buf[];
-extern const uint32_t pio_buf_len;
-extern const uint32_t pio_extra_cycles;
-extern const uint pio_base_gpio;
-extern const uint pio_n_gpio;
 
 // PIO global variables
 PIO pio;
@@ -37,14 +35,14 @@ void init_pio() {
 		&pio,
 		&sm,
 		&offset,
-		pio_base_gpio,
-		pio_n_gpio,
+		PIO_BASE_GPIO,
+		PIO_N_GPIO,
 		true
 	);
     hard_assert(rc);
 
     // Initialize state machine
-    pulse_program_init(pio, sm, offset, pio_base_gpio, pio_n_gpio);
+    pulse_program_init(pio, sm, offset, PIO_BASE_GPIO, PIO_N_GPIO);
     
     // clear FIFO
     pio_sm_clear_fifos(pio, sm);
@@ -74,7 +72,7 @@ void start_dma() {
         &dma_conf,
         &pio->txf[sm],
         pio_buf,
-        dma_encode_transfer_count(dma_count < pio_buf_len ? dma_count : pio_buf_len),
+        dma_encode_transfer_count(dma_count < PIO_BUF_LEN ? dma_count : PIO_BUF_LEN),
         true
     );
 };

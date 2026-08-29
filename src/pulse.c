@@ -6,6 +6,8 @@
 #include "hardware.h"
 #include "pulse.h"
 
+#include "board_config.h"
+
 #define PARSER_SUCCESS 0
 #define PARSER_EMPTY 1
 #define PARSER_FAILURE 2
@@ -19,9 +21,6 @@ extern uint32_t cpu_clk;
 
 // Pull in PIO variables from main.c
 extern uint32_t pio_buf[];
-extern const uint32_t pio_buf_len;
-extern const uint32_t pio_extra_cycles;
-extern const uint pio_n_gpio;
 
 // Pull in DMA variables from main.c
 extern uint32_t loop;
@@ -86,7 +85,7 @@ void decode_sequence(char* next_token, bool time_in_cycles) {
 	loop = n;
 
 	// Max number of inner loops that fit in the buffer
-	uint32_t m_max = pio_buf_len / i;
+	uint32_t m_max = PIO_BUF_LEN / i;
 
 	// Set actual number of inner loops
 	uint32_t m;
@@ -104,7 +103,7 @@ void decode_sequence(char* next_token, bool time_in_cycles) {
 		);
 
 	dma_count = i*m;
-	printf("OK, m = %lu, n = %lu, l_seq = %lu, l_total = %lu, buf_util = %.2f\n", m, n, i, m*i, (100.0*m*i)/pio_buf_len);
+	printf("OK, m = %lu, n = %lu, l_seq = %lu, l_total = %lu, buf_util = %.2f\n", m, n, i, m*i, (100.0*m*i)/PIO_BUF_LEN);
 }
 
 uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool time_in_cycles) {
@@ -118,7 +117,7 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 	static uint32_t remainder;
 	static bool rem_correction;
 	static uint32_t temp_delay;
-	uint64_t max_cycles = (1 << (32 - pio_n_gpio)) - 1 + pio_extra_cycles;
+	uint64_t max_cycles = (1 << (32 - PIO_N_GPIO)) - 1 + PIO_EXTRA_CYCLES;
 
 	// Read time from parameter list
 	tmp = strtok_r(NULL, ",", next_token_ptr);
@@ -134,7 +133,7 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 	}
 	
 	out = strtoul(tmp, NULL, 10);
-	if (out >= (1 << pio_n_gpio)) {
+	if (out >= (1 << PIO_N_GPIO)) {
 		strcpy(err, "Output mask is invalid!");
 		return PARSER_FAILURE;
 	}
@@ -155,23 +154,23 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 	}
 
 	// If the delay is too short, round it up to the shortest possible value
-	delay = delay > pio_extra_cycles ? delay : pio_extra_cycles;
+	delay = delay > PIO_EXTRA_CYCLES ? delay : PIO_EXTRA_CYCLES;
 
 	// Calculate values for splitting a large pulse
 	full_pulses = delay / max_cycles;
 	remainder = delay % max_cycles;
 	
 	// If the remainder is too short, it will be extended, throwing off the timing.
-	// We can correct this by subtracting pio_extra_cycles from one of the full pulses
+	// We can correct this by subtracting PIO_EXTRA_CYCLES from one of the full pulses
 	// and adding itto the partial one.
-	rem_correction = (remainder != 0) && (remainder < pio_extra_cycles);
+	rem_correction = (remainder != 0) && (remainder < PIO_EXTRA_CYCLES);
 
 	// Insert full pulses
 	if (full_pulses != 0)
 		for (uint32_t j = 0; j < delay / max_cycles; j++) {
 			// If a correction is required, shorten the first pulse
 			if (rem_correction && j == 0)
-				temp_delay = max_cycles - pio_extra_cycles;
+				temp_delay = max_cycles - PIO_EXTRA_CYCLES;
 			else
 				temp_delay = max_cycles;
 
@@ -184,7 +183,7 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 	if (remainder != 0) {
 		// If a correction is required, extend this pulse
 		if (rem_correction)
-			temp_delay = remainder + pio_extra_cycles;
+			temp_delay = remainder + PIO_EXTRA_CYCLES;
 		else
 			temp_delay = remainder;
 
@@ -201,14 +200,14 @@ uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool tim
 bool attempt_insertion(uint32_t delay, uint32_t output, uint32_t i) {
 	static uint32_t val;
 
-	if (i >= pio_buf_len)
+	if (i >= PIO_BUF_LEN)
 		return false;
 
-	// Round up delay to at least pio_extra_cycles
-	delay = delay > pio_extra_cycles ? delay : pio_extra_cycles;
+	// Round up delay to at least PIO_EXTRA_CYCLES
+	delay = delay > PIO_EXTRA_CYCLES ? delay : PIO_EXTRA_CYCLES;
 
 	// Calculate PIO command value
-	val = ((delay - pio_extra_cycles) << pio_n_gpio) | output;
+	val = ((delay - PIO_EXTRA_CYCLES) << PIO_N_GPIO) | output;
 
 	pio_buf[i] = val;
 	return true;

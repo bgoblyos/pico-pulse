@@ -7,10 +7,11 @@
 
 #include "pico/stdlib.h"
 
-#define LASER_NERR 19
-#define LASER_NSLP 20
+#include "board_config.h"
 
 bool laser_state = false;
+
+#if USE_LASER_DRIVER
 
 void init_laser(void) {
     // Initialize pins
@@ -47,3 +48,23 @@ void get_laser_error_cmd() {
     int val = get_laser_error() ? 1 : 0;
     printf("%d\n", val);
 }
+
+#else
+
+void init_laser(void) {}
+
+void set_laser_state(bool state) {}
+
+bool get_laser_error(void) {return 0;}
+
+void set_laser_state_cmd(char* next_token) {}
+
+void get_laser_state_cmd() {
+	printf("ERR: This firmware was built without laser driver support.\n");
+}
+
+void get_laser_error_cmd() {
+	printf("ERR: This firmware was built without laser driver support.\n");
+}
+
+#endif

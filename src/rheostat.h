@@ -4,11 +4,11 @@ void init_rheostats(void);
 
 void setup_i2c(void);
 
-bool reserved_addr(uint8_t addr);
-
-void bus_scan(void);
-
 int set_rheostat_position(uint8_t addr, int value);
+
+float state_to_monitor(int state);
+
+float state_to_limit(int state);
 
 float set_monitor_current(float current_A);
 

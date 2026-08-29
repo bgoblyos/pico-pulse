@@ -22,6 +22,21 @@ add_executable(pico-pulse)
 
 pico_generate_pio_header(pico-pulse ${CMAKE_CURRENT_LIST_DIR}/src/pico-pulse.pio)
 
+# Default to rev_a if not specified
+set(BOARD_REV "bare" CACHE STRING "Target board hardware revision")
+
+# Validate directory exists
+if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/boards/${BOARD_REV}")
+    message(FATAL_ERROR "Unknown board revision: ${BOARD_REV}")
+endif()
+
+message(STATUS "Building for Hardware Revision: ${BOARD_REV}")
+
+# Add the selected board directory to target includes
+target_include_directories(pico-pulse PRIVATE 
+    "boards/${BOARD_REV}"
+)
+
 target_sources(pico-pulse PRIVATE src/main.c src/hardware.c src/command.c src/pulse.c src/status.c src/rheostat.c src/laser.c)
 
 target_link_libraries(pico-pulse PRIVATE pico_stdlib pico_unique_id hardware_pio hardware_dma hardware_i2c)

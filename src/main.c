@@ -15,14 +15,10 @@
 #include "rheostat.h"
 #include "laser.h"
 
-// PIO parameters
-// Defined here for ease of access
-const uint pio_base_gpio = 6;              // Number of first GPIO to be used as output
-const uint pio_n_gpio = 5;                 // Number of consecutive GPIOs to use. Don't forget to update the PIO code if you change this!
-const uint32_t pio_extra_cycles = 4;       // Number of cycles it takes the PIO to loop if the delay is 0
-#define PIO_BUF_LEN 65536                  // PIO instruction buffer length
-const uint32_t pio_buf_len = PIO_BUF_LEN;  // Save it to a constant as well for convenience
-uint32_t pio_buf[PIO_BUF_LEN];             // Buffer for storing data for the PIO
+#include "board_config.h"
+
+// PIO buffer
+uint32_t pio_buf[PIO_BUF_LEN]; // Buffer for storing data for the PIO
 
 // Pull in DMA related variables from hardware.c for use here
 extern int dma;          // Number of the DMA channel, used for checking if it's busy
