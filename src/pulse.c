@@ -1,7 +1,7 @@
-#include <string.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "hardware.h"
 #include "pulse.h"
@@ -14,7 +14,8 @@
 
 // Primes for finding greatest common divisor
 #define GCD_PRIMES_LEN 2
-const uint64_t primes[GCD_PRIMES_LEN] = {2, 5}; // We only deal with multiples of 10 for now
+const uint64_t primes[GCD_PRIMES_LEN] = {
+    2, 5}; // We only deal with multiples of 10 for now
 
 // Pull in CPU clock rate from main.c
 extern uint32_t cpu_clk;
@@ -27,222 +28,219 @@ extern uint32_t loop;
 extern int dma;
 extern uint dma_count;
 
-void decode_sequence(char* next_token, bool time_in_cycles) {
-	static char* tmp;
-	static char err[256];
-	static uint32_t m_target;
-	static uint32_t n;
+void decode_sequence(char *next_token, bool time_in_cycles) {
+  static char *tmp;
+  static char err[256];
+  static uint32_t m_target;
+  static uint32_t n;
 
-	uint32_t i = 0;
+  uint32_t i = 0;
 
-	// Read in m
-	tmp = strtok_r(NULL, " ", &next_token);
-	if (tmp) {
-		m_target = strtoul(tmp, NULL, 10);
-	}
-	else {
-		printf("Error: m parameter could not be parsed.\n");
-		loop = 0;
-		dma_count = 0;
-		return;
-	}
+  // Read in m
+  tmp = strtok_r(NULL, " ", &next_token);
+  if (tmp) {
+    m_target = strtoul(tmp, NULL, 10);
+  } else {
+    printf("Error: m parameter could not be parsed.\n");
+    loop = 0;
+    dma_count = 0;
+    return;
+  }
 
-	// Read in n
-	tmp = strtok_r(NULL, " ", &next_token);
-	if (tmp) {
-		n = strtoul(tmp, NULL, 10);
-	}
-	else {
-		printf("Error: n parameter could not be parsed.\n");
-		loop = 0;
-		dma_count = 0;
-		return;
-	}
+  // Read in n
+  tmp = strtok_r(NULL, " ", &next_token);
+  if (tmp) {
+    n = strtoul(tmp, NULL, 10);
+  } else {
+    printf("Error: n parameter could not be parsed.\n");
+    loop = 0;
+    dma_count = 0;
+    return;
+  }
 
-	// If we don't intent to start immediately and the DMA is empty,
-	// we don't need to abort the current run
-	if (!(n == 0 && is_busy() != 2)) {
-		stop_all();
-	}
-	
-	bool keepgoing = true;
-	while(keepgoing) {
-		switch (parse_entry(&next_token, &i, err, time_in_cycles)) {
-		case PARSER_EMPTY:
-			keepgoing = false;
-			break;
-		case PARSER_FAILURE:
-			printf("Error: %s\n", err);
-			loop = 0;
-			dma_count = 0;
-			return;
-		default:
-			break;
-		}
-	}
+  // If we don't intent to start immediately and the DMA is empty,
+  // we don't need to abort the current run
+  if (!(n == 0 && is_busy() != 2)) {
+    stop_all();
+  }
 
+  bool keepgoing = true;
+  while (keepgoing) {
+    switch (parse_entry(&next_token, &i, err, time_in_cycles)) {
+    case PARSER_EMPTY:
+      keepgoing = false;
+      break;
+    case PARSER_FAILURE:
+      printf("Error: %s\n", err);
+      loop = 0;
+      dma_count = 0;
+      return;
+    default:
+      break;
+    }
+  }
 
-	loop = n;
+  loop = n;
 
-	// Max number of inner loops that fit in the buffer
-	uint32_t m_max = PIO_BUF_LEN / i;
+  // Max number of inner loops that fit in the buffer
+  uint32_t m_max = PIO_BUF_LEN / i;
 
-	// Set actual number of inner loops
-	uint32_t m;
-	if (m_target == 0)
-		m = m_max;
-	else
-		m = m_target < m_max ? m_target : m_max;
+  // Set actual number of inner loops
+  uint32_t m;
+  if (m_target == 0)
+    m = m_max;
+  else
+    m = m_target < m_max ? m_target : m_max;
 
-	// Copy contents inside the buffer
-	for (uint32_t j = 1; j < m; j++)
-		memcpy(
-			pio_buf + (i * j),
-			pio_buf,
-			i * sizeof(pio_buf[0])
-		);
+  // Copy contents inside the buffer
+  for (uint32_t j = 1; j < m; j++)
+    memcpy(pio_buf + (i * j), pio_buf, i * sizeof(pio_buf[0]));
 
-	dma_count = i*m;
-	printf("OK, m = %lu, n = %lu, l_seq = %lu, l_total = %lu, buf_util = %.2f\n", m, n, i, m*i, (100.0*m*i)/PIO_BUF_LEN);
+  dma_count = i * m;
+  printf("OK, m = %lu, n = %lu, l_seq = %lu, l_total = %lu, buf_util = %.2f\n",
+         m, n, i, m * i, (100.0 * m * i) / PIO_BUF_LEN);
 }
 
-uint32_t parse_entry(char** next_token_ptr, uint32_t* i_ptr, char* err, bool time_in_cycles) {
-	static char* tmp;
-	static uint32_t out;
-	static uint64_t time;
-	static uint64_t delay;
-	static uint64_t simplify;
-	static const uint64_t s_to_ns = 1000000000;
-	static uint32_t full_pulses;
-	static uint32_t remainder;
-	static bool rem_correction;
-	static uint32_t temp_delay;
-	uint64_t max_cycles = (1 << (32 - PIO_N_GPIO)) - 1 + PIO_EXTRA_CYCLES;
+uint32_t parse_entry(char **next_token_ptr, uint32_t *i_ptr, char *err,
+                     bool time_in_cycles) {
+  static char *tmp;
+  static uint32_t out;
+  static uint64_t time;
+  static uint64_t delay;
+  static uint64_t simplify;
+  static const uint64_t s_to_ns = 1000000000;
+  static uint32_t full_pulses;
+  static uint32_t remainder;
+  static bool rem_correction;
+  static uint32_t temp_delay;
+  uint64_t max_cycles = (1 << (32 - PIO_N_GPIO)) - 1 + PIO_EXTRA_CYCLES;
 
-	// Read time from parameter list
-	tmp = strtok_r(NULL, ",", next_token_ptr);
-	if (!tmp)
-		return PARSER_EMPTY;
+  // Read time from parameter list
+  tmp = strtok_r(NULL, ",", next_token_ptr);
+  if (!tmp)
+    return PARSER_EMPTY;
 
-	time = strtoull(tmp, NULL, 10);
+  time = strtoull(tmp, NULL, 10);
 
-	tmp = strtok_r(NULL, ",", next_token_ptr);
-	if (!tmp) {
-		strcpy(err, "Time entry has no corresponding output mask!");
-		return PARSER_FAILURE;
-	}
-	
-	out = strtoul(tmp, NULL, 10);
-	if (out >= (1 << PIO_N_GPIO)) {
-		strcpy(err, "Output mask is invalid!");
-		return PARSER_FAILURE;
-	}
+  tmp = strtok_r(NULL, ",", next_token_ptr);
+  if (!tmp) {
+    strcpy(err, "Time entry has no corresponding output mask!");
+    return PARSER_FAILURE;
+  }
 
-	if (time_in_cycles) {
-		delay = time;
-	}
-	else {
-		// Find simplification factor for cpu_clk/s_to_ns. As these are all large, likely round numbers,
-		// this helps us stay within the bounds of 64 bit integers.
-		simplify = gcd(cpu_clk, s_to_ns); 
-		// If time * (cpu_clk / simplify) would cause an overflow, abort
-		if (time > (~(uint64_t)0 / (cpu_clk / simplify))) {
-			strcpy(err, "Time is too long to process! Consider using cycle timings instead.");
-			return PARSER_FAILURE;
-		}
-		delay = time * (cpu_clk / simplify) / (s_to_ns / simplify); // Convert ns to cycles
-	}
+  out = strtoul(tmp, NULL, 10);
+  if (out >= (1 << PIO_N_GPIO)) {
+    strcpy(err, "Output mask is invalid!");
+    return PARSER_FAILURE;
+  }
 
-	// If the delay is too short, round it up to the shortest possible value
-	delay = delay > PIO_EXTRA_CYCLES ? delay : PIO_EXTRA_CYCLES;
+  if (time_in_cycles) {
+    delay = time;
+  } else {
+    // Find simplification factor for cpu_clk/s_to_ns. As these are all large,
+    // likely round numbers, this helps us stay within the bounds of 64 bit
+    // integers.
+    simplify = gcd(cpu_clk, s_to_ns);
+    // If time * (cpu_clk / simplify) would cause an overflow, abort
+    if (time > (~(uint64_t)0 / (cpu_clk / simplify))) {
+      strcpy(
+          err,
+          "Time is too long to process! Consider using cycle timings instead.");
+      return PARSER_FAILURE;
+    }
+    delay = time * (cpu_clk / simplify) /
+            (s_to_ns / simplify); // Convert ns to cycles
+  }
 
-	// Calculate values for splitting a large pulse
-	full_pulses = delay / max_cycles;
-	remainder = delay % max_cycles;
-	
-	// If the remainder is too short, it will be extended, throwing off the timing.
-	// We can correct this by subtracting PIO_EXTRA_CYCLES from one of the full pulses
-	// and adding itto the partial one.
-	rem_correction = (remainder != 0) && (remainder < PIO_EXTRA_CYCLES);
+  // If the delay is too short, round it up to the shortest possible value
+  delay = delay > PIO_EXTRA_CYCLES ? delay : PIO_EXTRA_CYCLES;
 
-	// Insert full pulses
-	if (full_pulses != 0)
-		for (uint32_t j = 0; j < delay / max_cycles; j++) {
-			// If a correction is required, shorten the first pulse
-			if (rem_correction && j == 0)
-				temp_delay = max_cycles - PIO_EXTRA_CYCLES;
-			else
-				temp_delay = max_cycles;
+  // Calculate values for splitting a large pulse
+  full_pulses = delay / max_cycles;
+  remainder = delay % max_cycles;
 
-			if (!attempt_insertion(temp_delay, out, (*i_ptr)++)) {
-				strcpy(err, "Insertion failed, buffer has been overrun.");
-				return PARSER_FAILURE;
-			}
-		}
+  // If the remainder is too short, it will be extended, throwing off the
+  // timing. We can correct this by subtracting PIO_EXTRA_CYCLES from one of the
+  // full pulses and adding itto the partial one.
+  rem_correction = (remainder != 0) && (remainder < PIO_EXTRA_CYCLES);
 
-	if (remainder != 0) {
-		// If a correction is required, extend this pulse
-		if (rem_correction)
-			temp_delay = remainder + PIO_EXTRA_CYCLES;
-		else
-			temp_delay = remainder;
+  // Insert full pulses
+  if (full_pulses != 0)
+    for (uint32_t j = 0; j < delay / max_cycles; j++) {
+      // If a correction is required, shorten the first pulse
+      if (rem_correction && j == 0)
+        temp_delay = max_cycles - PIO_EXTRA_CYCLES;
+      else
+        temp_delay = max_cycles;
 
-		if (!attempt_insertion(temp_delay, out, (*i_ptr)++)) {
-			strcpy(err, "Insertion failed, buffer has been overrun.");
-			return PARSER_FAILURE;
-		}
-	}
+      if (!attempt_insertion(temp_delay, out, (*i_ptr)++)) {
+        strcpy(err, "Insertion failed, buffer has been overrun.");
+        return PARSER_FAILURE;
+      }
+    }
 
-	return PARSER_SUCCESS;
+  if (remainder != 0) {
+    // If a correction is required, extend this pulse
+    if (rem_correction)
+      temp_delay = remainder + PIO_EXTRA_CYCLES;
+    else
+      temp_delay = remainder;
 
+    if (!attempt_insertion(temp_delay, out, (*i_ptr)++)) {
+      strcpy(err, "Insertion failed, buffer has been overrun.");
+      return PARSER_FAILURE;
+    }
+  }
+
+  return PARSER_SUCCESS;
 }
 
 bool attempt_insertion(uint32_t delay, uint32_t output, uint32_t i) {
-	static uint32_t val;
+  static uint32_t val;
 
-	if (i >= PIO_BUF_LEN)
-		return false;
+  if (i >= PIO_BUF_LEN)
+    return false;
 
-	// Round up delay to at least PIO_EXTRA_CYCLES
-	delay = delay > PIO_EXTRA_CYCLES ? delay : PIO_EXTRA_CYCLES;
+  // Round up delay to at least PIO_EXTRA_CYCLES
+  delay = delay > PIO_EXTRA_CYCLES ? delay : PIO_EXTRA_CYCLES;
 
-	// Calculate PIO command value
-	val = ((delay - PIO_EXTRA_CYCLES) << PIO_N_GPIO) | output;
+  // Calculate PIO command value
+  val = ((delay - PIO_EXTRA_CYCLES) << PIO_N_GPIO) | output;
 
-	pio_buf[i] = val;
-	return true;
+  pio_buf[i] = val;
+  return true;
 }
 
 uint64_t gcd(uint64_t a, uint64_t b) {
-	// Cache previous entry, as this function is expected to be called
-	// multiple times with the same arguments
-	static uint64_t a_cache = 0;
-	static uint64_t b_cache = 0;
-	static uint64_t r_cache = 1;
+  // Cache previous entry, as this function is expected to be called
+  // multiple times with the same arguments
+  static uint64_t a_cache = 0;
+  static uint64_t b_cache = 0;
+  static uint64_t r_cache = 1;
 
-	// Return cached result if possible
-	if (a == a_cache && b == b_cache) {
-		return r_cache;
-	} else {
-		a_cache = a;
-		b_cache = b;
-	}
+  // Return cached result if possible
+  if (a == a_cache && b == b_cache) {
+    return r_cache;
+  } else {
+    a_cache = a;
+    b_cache = b;
+  }
 
-	uint64_t r = 1;
-	bool keepgoing = true;
+  uint64_t r = 1;
+  bool keepgoing = true;
 
-	while (keepgoing) {
-		keepgoing = false;
-		for (uint32_t i = 0; i < GCD_PRIMES_LEN; i++) {
-			if ((a % primes[i]) == 0 && (b % primes[i]) == 0) {
-				r *= primes[i];
-				a /= primes[i];
-				b /= primes[i];
-				keepgoing = true;
-			}
-		}
-	}
+  while (keepgoing) {
+    keepgoing = false;
+    for (uint32_t i = 0; i < GCD_PRIMES_LEN; i++) {
+      if ((a % primes[i]) == 0 && (b % primes[i]) == 0) {
+        r *= primes[i];
+        a /= primes[i];
+        b /= primes[i];
+        keepgoing = true;
+      }
+    }
+  }
 
-	r_cache = r;
-	return r;
+  r_cache = r;
+  return r;
 }

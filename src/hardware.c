@@ -3,8 +3,8 @@
 
 #include "hardware.h"
 
-#include "hardware/pio.h"
 #include "hardware/dma.h"
+#include "hardware/pio.h"
 #include "pico-pulse.pio.h"
 
 #include "board_config.h"
@@ -29,76 +29,65 @@ extern uint32_t loop;
 extern const uint32_t loop_inf_val;
 
 void init_pio() {
-	// Find a free pio and state machine and add the program
-    bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(
-		&pulse_program,
-		&pio,
-		&sm,
-		&offset,
-		PIO_BASE_GPIO,
-		PIO_N_GPIO,
-		true
-	);
-    hard_assert(rc);
+  // Find a free pio and state machine and add the program
+  bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(
+      &pulse_program, &pio, &sm, &offset, PIO_BASE_GPIO, PIO_N_GPIO, true);
+  hard_assert(rc);
 
-    // Initialize state machine
-    pulse_program_init(pio, sm, offset, PIO_BASE_GPIO, PIO_N_GPIO);
-    
-    // clear FIFO
-    pio_sm_clear_fifos(pio, sm);
+  // Initialize state machine
+  pulse_program_init(pio, sm, offset, PIO_BASE_GPIO, PIO_N_GPIO);
 
-    // enable state machine
-    pio_sm_set_enabled(pio, sm, true);
+  // clear FIFO
+  pio_sm_clear_fifos(pio, sm);
+
+  // enable state machine
+  pio_sm_set_enabled(pio, sm, true);
 }
 
 void init_dma() {
-    // Claim DMA channel
-    dma = dma_claim_unused_channel(true);
-    // Get default config
-    dma_conf = dma_channel_get_default_config(dma);
-    // Set DMA width to 32 bits
-    channel_config_set_transfer_data_size(&dma_conf, DMA_SIZE_32);
-    // Increment read address
-    channel_config_set_read_increment(&dma_conf, true);
-    // Do not increment write address
-    channel_config_set_write_increment(&dma_conf, false);
-    // Connect to FIFO Tx request signals
-    channel_config_set_dreq(&dma_conf, pio_get_dreq(pio, sm, true));
+  // Claim DMA channel
+  dma = dma_claim_unused_channel(true);
+  // Get default config
+  dma_conf = dma_channel_get_default_config(dma);
+  // Set DMA width to 32 bits
+  channel_config_set_transfer_data_size(&dma_conf, DMA_SIZE_32);
+  // Increment read address
+  channel_config_set_read_increment(&dma_conf, true);
+  // Do not increment write address
+  channel_config_set_write_increment(&dma_conf, false);
+  // Connect to FIFO Tx request signals
+  channel_config_set_dreq(&dma_conf, pio_get_dreq(pio, sm, true));
 }
 
 void start_dma() {
-    dma_channel_configure(
-        dma,
-        &dma_conf,
-        &pio->txf[sm],
-        pio_buf,
-        dma_encode_transfer_count(dma_count < PIO_BUF_LEN ? dma_count : PIO_BUF_LEN),
-        true
-    );
+  dma_channel_configure(dma, &dma_conf, &pio->txf[sm], pio_buf,
+                        dma_encode_transfer_count(
+                            dma_count < PIO_BUF_LEN ? dma_count : PIO_BUF_LEN),
+                        true);
 };
 
 // Stop DMA and flush PIO FIFO
 void stop_all() {
-	// Turn off infinite DMA looping and set loop count to 0
-	loop = 0;
-    // Disable state machine
-	pio_sm_set_enabled(pio, sm, true);
-	// Stop DMA
-	dma_channel_abort(dma);
-	// Clear FIFO
-    pio_sm_clear_fifos(pio, sm);
-    // Re-enable state machine
-    pio_sm_set_enabled(pio, sm, true);
-	// Send a zero to the PIO to disable all outputs
-	pio_sm_put_blocking(pio, sm, 0);
+  // Turn off infinite DMA looping and set loop count to 0
+  loop = 0;
+  // Disable state machine
+  pio_sm_set_enabled(pio, sm, true);
+  // Stop DMA
+  dma_channel_abort(dma);
+  // Clear FIFO
+  pio_sm_clear_fifos(pio, sm);
+  // Re-enable state machine
+  pio_sm_set_enabled(pio, sm, true);
+  // Send a zero to the PIO to disable all outputs
+  pio_sm_put_blocking(pio, sm, 0);
 }
 
 uint32_t is_busy() {
-	if (loop != 0 || dma_channel_is_busy(dma)) {
-		return 2; // DMA is busy
-	} else if (!pio_sm_is_tx_fifo_empty(pio, sm)) {
-		return 1; // PIO is busy but DMA is idle
-	} else {
-		return 0; // Nothing is busy
-	}
+  if (loop != 0 || dma_channel_is_busy(dma)) {
+    return 2; // DMA is busy
+  } else if (!pio_sm_is_tx_fifo_empty(pio, sm)) {
+    return 1; // PIO is busy but DMA is idle
+  } else {
+    return 0; // Nothing is busy
+  }
 }

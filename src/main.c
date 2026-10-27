@@ -1,19 +1,19 @@
 // Copyright (c) 2025 Bence Göblyös
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 
-#include "pico/stdlib.h"
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
+#include "pico/stdlib.h"
 
-#include "hardware.h"
 #include "command.h"
-#include "status.h"
-#include "rheostat.h"
+#include "hardware.h"
 #include "laser.h"
+#include "rheostat.h"
+#include "status.h"
 
 #include "board_config.h"
 
@@ -21,8 +21,9 @@
 uint32_t pio_buf[PIO_BUF_LEN]; // Buffer for storing data for the PIO
 
 // Pull in DMA related variables from hardware.c for use here
-extern int dma;          // Number of the DMA channel, used for checking if it's busy
-extern uint dma_count;   // Number of transfers to be done by the DMA, set after uploading new sequence
+extern int dma; // Number of the DMA channel, used for checking if it's busy
+extern uint dma_count; // Number of transfers to be done by the DMA, set after
+                       // uploading new sequence
 
 // Timing variables
 uint32_t cpu_clk;
@@ -32,63 +33,60 @@ uint32_t loop = 0;                // Loop count
 const uint32_t loop_inf_val = ~0; // Max value of uint32_t, treated as inf
 
 // Pull in command processing flags from command.c
-extern bool cmd_ready;          // Indicate whether command ready to be processed
-extern bool rx_available;       // Indicate whether a character is avaialble on stdin
-
+extern bool cmd_ready;    // Indicate whether command ready to be processed
+extern bool rx_available; // Indicate whether a character is avaialble on stdin
 
 int main() {
-	// Initialize status LED
-	status_init();
-	status_on();
+  // Initialize status LED
+  status_init();
+  status_on();
 
-	// Initialize rheostats for power control and current limiting
-	init_rheostats();
+  // Initialize rheostats for power control and current limiting
+  init_rheostats();
 
-    // Initialize serial communication on UART
-    setup_default_uart();
-	stdio_init_all();
-    // Set up input handler
-    stdio_set_chars_available_callback(rx_handler, NULL);
+  // Initialize serial communication on UART
+  setup_default_uart();
+  stdio_init_all();
+  // Set up input handler
+  stdio_set_chars_available_callback(rx_handler, NULL);
 
-    // Initialize PIO and DMA channel
-    init_pio();
-    init_dma();
+  // Initialize PIO and DMA channel
+  init_pio();
+  init_dma();
 
-    // Get system clock speed
-    cpu_clk = clock_get_hz(clk_sys);
+  // Get system clock speed
+  cpu_clk = clock_get_hz(clk_sys);
 
-	// Enable laser driver
-	init_laser();
+  // Enable laser driver
+  init_laser();
 
-	// Indicate that setup is complete
-	status_off();
+  // Indicate that setup is complete
+  status_off();
 
-    // Main loop
-	while (1) {
-		// If there are characters available, read one of them in.
-		// This might be slower than reading them in until the buffer is emtpy,
-		// but the DMA requires frequent attention and somewhat consistent timings
-		if (rx_available) {
-			cmd_read_char();
-		}
+  // Main loop
+  while (1) {
+    // If there are characters available, read one of them in.
+    // This might be slower than reading them in until the buffer is emtpy,
+    // but the DMA requires frequent attention and somewhat consistent timings
+    if (rx_available) {
+      cmd_read_char();
+    }
 
-		// If a new command has been read in, decode it
-		if (cmd_ready) {
-			status_on();
-			cmd_decode();
-			// Indicate that command has been processed
-			cmd_ready = false;
-			status_off();
-		}
+    // If a new command has been read in, decode it
+    if (cmd_ready) {
+      status_on();
+      cmd_decode();
+      // Indicate that command has been processed
+      cmd_ready = false;
+      status_off();
+    }
 
-		// If DMA looping is requested and DMA is idle, restart it
-		if (loop != 0 && !dma_channel_is_busy(dma)) {
-			start_dma();
-			// If looping is finite, decrement counter
-			if (loop != loop_inf_val)
-				loop--;
-		}
-	}
-
+    // If DMA looping is requested and DMA is idle, restart it
+    if (loop != 0 && !dma_channel_is_busy(dma)) {
+      start_dma();
+      // If looping is finite, decrement counter
+      if (loop != loop_inf_val)
+        loop--;
+    }
+  }
 }
-
