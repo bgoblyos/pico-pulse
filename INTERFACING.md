@@ -78,3 +78,33 @@ Starts and repeats the buffered pulse sequence `n` times (`n` = 2^32-1 for infin
 ### `STOP`
 
 Stops output immediately. Stops the DMA, clears the PIO FIFO and sets all output pins to 0.
+
+### `LASER b`
+
+Send `b = 1` to enable the laser driver or `b = 0` to disable it.
+
+### `LASER?`
+
+Queries whether the laser driver is enabled (`1` is yes, `0` is no).
+
+### `LERR?`
+
+Queries whether the laser driver is in an error state (`1` is yes, `0` is no).
+
+### `MON f`
+
+Sets the target monitor photocurrent to `f` amperes. Accepts floats in scientific notation (i.e. `3.6e-6`).
+Returns the achieved monitor photocurrent in amperes.
+
+### `MON?`
+
+Returns the currently set monitor photocurrent in amperes.
+
+### `LIM f`
+
+Sets the laser current limit to `f` amperes. Accepts floats in scientific notation (i.e. `3.6e-6`).
+Returns the achieved laser current limit in amperes.
+
+### `LIM?`
+
+Returns the currently set laser current limit in amperes.
