@@ -64,9 +64,13 @@ void get_laser_state_cmd() {
 
 void init_laser(void) {}
 
-void set_laser_state(bool state) {}
+int set_laser_state(bool state) {}
 
-int set_laser_state_cmd(char *next_token) {}
+void set_laser_state_cmd(char *next_token) {
+  printf(
+      "{\"status\": 1, \"error_msg\": \"This firmware was built without laser "
+      "driver support.\"}\n");
+}
 
 void get_laser_state_cmd() {
   printf(
