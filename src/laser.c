@@ -11,6 +11,8 @@
 #include "laser.h"
 #include "rheostat.h"
 
+#define BOOL2STR(b) (b ? "true" : "false")
+
 bool laser_state = false;
 
 #if USE_LASER_DRIVER
@@ -27,9 +29,13 @@ void init_laser(void) {
 }
 
 int set_laser_state(bool state) {
-  int retcode = ensure_rheostat_state();
-  if (retcode < 0) {
-    return retcode;
+  // Before turning on the laser, make sure the rheostat is consistent.
+  // Abort if consistency cannot be achieved.
+  if (state) {
+    int retcode = ensure_rheostat_state();
+    if (retcode < 0) {
+      return retcode;
+    }
   }
 
   gpio_put(LASER_NSLP, state);
@@ -41,40 +47,31 @@ bool get_laser_error(void) { return !gpio_get(LASER_NERR); }
 
 void set_laser_state_cmd(char *next_token) {
   int state = atoi(next_token);
+  // TODO: Use some custom error table instead of the Pico SDK enum
   int retcode = set_laser_state((bool)(state));
-  if (retcode == PICO_OK) {
-    printf("ACK\n");
-  } else {
-    printf("ERR: Rheostats could not be reset to stored values.\n");
-  }
+  int error = get_laser_error()
+      printf("{\"status\": %d, \"enabled\": %s, \"error_state\": %s}\n",
+             retcode, BOOL2STR(laser_state), BOOL2STR(error));
 }
 
 void get_laser_state_cmd() {
-  int val = laser_state ? 1 : 0;
-  printf("%d\n", val);
-}
-
-void get_laser_error_cmd() {
-  int val = get_laser_error() ? 1 : 0;
-  printf("%d\n", val);
+  int error = get_laser_error() int error printf(
+      "{\"status\": 0, \"enabled\": %s, \"error_state\": %s}\n",
+      BOOL2STR(laser_state), BOOL2STR(error));
 }
 
 #else
 
 void init_laser(void) {}
 
-int set_laser_state(bool state) { return 0; }
-
-bool get_laser_error(void) { return 0; }
+void set_laser_state(bool state) {}
 
 void set_laser_state_cmd(char *next_token) {}
 
 void get_laser_state_cmd() {
-  printf("ERR: This firmware was built without laser driver support.\n");
-}
-
-void get_laser_error_cmd() {
-  printf("ERR: This firmware was built without laser driver support.\n");
+  printf(
+      "{\"status\": 1, \"error_msg\": \"This firmware was built without laser "
+      "driver support.\"}\n");
 }
 
 #endif

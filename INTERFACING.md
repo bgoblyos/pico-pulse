@@ -85,11 +85,7 @@ Send `b = 1` to enable the laser driver or `b = 0` to disable it.
 
 ### `LASER?`
 
-Queries whether the laser driver is enabled (`1` is yes, `0` is no).
-
-### `LERR?`
-
-Queries whether the laser driver is in an error state (`1` is yes, `0` is no).
+Queries the state of the laser.
 
 ### `MON f`
 

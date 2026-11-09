@@ -114,8 +114,6 @@ void cmd_decode() {
     set_laser_state_cmd(next_token);
   } else if (!strcmp(cmd_word, "LASER?")) {
     get_laser_state_cmd();
-  } else if (!strcmp(cmd_word, "LERR?")) {
-    get_laser_error_cmd();
   } else if (!strcmp(cmd_word, "MON") || !strcmp(cmd_word, "MONITOR")) {
     set_monitor_current_cmd(next_token);
   } else if (!strcmp(cmd_word, "MON?") || !strcmp(cmd_word, "MONITOR?")) {
