@@ -49,15 +49,15 @@ void set_laser_state_cmd(char *next_token) {
   int state = atoi(next_token);
   // TODO: Use some custom error table instead of the Pico SDK enum
   int retcode = set_laser_state((bool)(state));
-  int error = get_laser_error()
-      printf("{\"status\": %d, \"enabled\": %s, \"error_state\": %s}\n",
-             retcode, BOOL2STR(laser_state), BOOL2STR(error));
+  int error = get_laser_error();
+  printf("{\"status\": %d, \"enabled\": %s, \"error_state\": %s}\n", retcode,
+         BOOL2STR(laser_state), BOOL2STR(error));
 }
 
 void get_laser_state_cmd() {
-  int error = get_laser_error() int error printf(
-      "{\"status\": 0, \"enabled\": %s, \"error_state\": %s}\n",
-      BOOL2STR(laser_state), BOOL2STR(error));
+  int error = get_laser_error();
+  printf("{\"status\": 0, \"enabled\": %s, \"error_state\": %s}\n",
+         BOOL2STR(laser_state), BOOL2STR(error));
 }
 
 #else
@@ -66,7 +66,7 @@ void init_laser(void) {}
 
 void set_laser_state(bool state) {}
 
-void set_laser_state_cmd(char *next_token) {}
+int set_laser_state_cmd(char *next_token) {}
 
 void get_laser_state_cmd() {
   printf(
