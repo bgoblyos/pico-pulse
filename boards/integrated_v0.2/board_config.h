@@ -21,6 +21,6 @@
 #define LIM_SERIES_RES 1000
 
 // Laser driver pins
-#define LASER_NERR 19
-#define LASER_NSLP 20
+#define LASER_NERR 14
+#define LASER_NSLP 15
 
