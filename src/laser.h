@@ -2,7 +2,7 @@
 
 void init_laser(void);
 
-void set_laser_state(bool state);
+int set_laser_state(bool state);
 
 bool get_laser_error(void);
 

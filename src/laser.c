@@ -8,6 +8,8 @@
 #include "pico/stdlib.h"
 
 #include "board_config.h"
+#include "laser.h"
+#include "rheostat.h"
 
 bool laser_state = false;
 
@@ -24,17 +26,27 @@ void init_laser(void) {
   laser_state = false;
 }
 
-void set_laser_state(bool state) {
+int set_laser_state(bool state) {
+  int retcode = ensure_rheostat_state();
+  if (retcode < 0) {
+    return retcode;
+  }
+
   gpio_put(LASER_NSLP, state);
   laser_state = state;
+  return PICO_OK;
 }
 
-bool get_laser_error(void) { return gpio_get(LASER_NERR); }
+bool get_laser_error(void) { return !gpio_get(LASER_NERR); }
 
 void set_laser_state_cmd(char *next_token) {
   int state = atoi(next_token);
-  set_laser_state((bool)(state));
-  printf("ACK\n");
+  int retcode = set_laser_state((bool)(state));
+  if (retcode == PICO_OK) {
+    printf("ACK\n");
+  } else {
+    printf("ERR: Rheostats could not be reset to stored values.\n");
+  }
 }
 
 void get_laser_state_cmd() {
@@ -51,7 +63,7 @@ void get_laser_error_cmd() {
 
 void init_laser(void) {}
 
-void set_laser_state(bool state) {}
+int set_laser_state(bool state) { return 0; }
 
 bool get_laser_error(void) { return 0; }
 
