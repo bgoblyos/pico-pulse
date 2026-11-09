@@ -71,7 +71,7 @@ void stop_all() {
   // Turn off infinite DMA looping and set loop count to 0
   loop = 0;
   // Disable state machine
-  pio_sm_set_enabled(pio, sm, true);
+  pio_sm_set_enabled(pio, sm, false);
   // Stop DMA
   dma_channel_abort(dma);
   // Clear FIFO
