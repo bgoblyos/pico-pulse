@@ -3,16 +3,20 @@
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-  outputs = { self, nixpkgs }: let
+  outputs = {
+    self,
+    nixpkgs,
+  }: let
     pkgs = nixpkgs.legacyPackages.x86_64-linux;
   in {
     devShells.x86_64-linux.default = pkgs.mkShell {
       packages = with pkgs; [
-        gcc-arm-embedded                             # arm-none-eabi-gcc
+        gcc-arm-embedded # arm-none-eabi-gcc
         pkgsCross.riscv32-embedded.buildPackages.gcc # riscv32-none-elf-gcc
-        picotool                                     # USB flashing & inspection tool
-        pico-sdk                                     # C/C++ SDK (install for 
+        picotool # USB flashing & inspection tool
+        pico-sdk # C/C++ SDK (install for
         cmake
+        python3
       ];
 
       # Expose SDK location to CMake
