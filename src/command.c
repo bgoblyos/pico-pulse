@@ -26,8 +26,10 @@ char cmd_buf[CMD_BUF_LEN];
 #define BID_BUF_LEN 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1
 char bid_buf[BID_BUF_LEN];
 
-bool cmd_ready = false;    // Indicate whether command ready to be processed
-bool rx_available = false; // Indicate whether a character is avaialble on stdin
+// Indicate whether command is ready to be processed
+volatile bool cmd_ready = false;
+// Indicate whether a character is avaialble on stdin
+volatile bool rx_available = false;
 
 // Pull in CPU clock rate from main.c
 extern uint32_t cpu_clk;
@@ -46,15 +48,22 @@ void rx_handler(void *ptr) { rx_available = true; }
 // This function is called in the main loop every time there's a character
 // available
 void cmd_read_char() {
-  static uint32_t rx_counter =
-      0;             // Keep track of cursor position in receive buffer
-  static int rx_tmp; // Temporary buffer for received character
+  // Unset the available flag
+  rx_available = false;
+  // Keep track of cursor position in receive buffer
+  static uint32_t rx_counter = 0;
+  // Temporary buffer for received character
+  static int rx_tmp;
 
   // Read in single char
   rx_tmp = stdio_getchar_timeout_us(0);
 
   // If the new character is received successfully, process it
   if (rx_tmp != PICO_ERROR_TIMEOUT) {
+    // Re-enable the rx_availalbe flag, as we might have another character
+    // waiting.
+    rx_available = true;
+
     // If character is LF or CR or we ran out of space, terminate string and
     // hand off into another buffer for further processing. The non-zero length
     // check prevents extra line terminations, so CRLF doesn't result in a new
@@ -66,9 +75,14 @@ void cmd_read_char() {
       // so it doesn't matter if it happens one character sooner.
       cmd_buf[rx_counter] = '\0';
 
-      // printf("Command read-in successful: %s.\n", cmd_buf);
-      //  Indicate that command is ready for processing
-      cmd_ready = true;
+      // Unless we got here by overrunning the buffer,
+      // indicate that command is ready for processing
+      // This will almost certainly result in an invalid command, but at least
+      // it will leave the system in a consistent state (won't allow a single
+      // input command to be processed as two or more)
+      if (rx_counter != CMD_BUF_LEN - 1)
+        cmd_ready = true;
+
       // Reset counter
       rx_counter = 0;
     }
@@ -76,11 +90,7 @@ void cmd_read_char() {
     // append to command buffer
     else if (isprint(rx_tmp)) {
       cmd_buf[rx_counter++] = toupper((char)rx_tmp);
-      // printf("Read in character %c.\n", (char)rx_tmp);
     }
-  } else {
-    // If we couldn't get a character, indicate that the buffer is empty
-    rx_available = false;
   }
 }
 
